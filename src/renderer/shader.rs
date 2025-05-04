@@ -1,10 +1,23 @@
 use glow::HasContext;
+use log::info;
+
+use crate::unbind_on_drop;
+
+use super::{ScopedBind, binding::UnbindOnDrop};
 
 #[derive(Copy, Clone)]
 pub(super) struct Shader(pub glow::Program);
 
 impl Shader {
-    fn new(gl: &glow::Context, vs_path: &str, fs_path: &str) -> Self {
+    fn new(gl: &glow::Context, name: &str) -> Self {
+        let shaders_folder = "data/shaders/";
+        let shader_path = String::from(shaders_folder) + name;
+        let vs_path = shader_path.clone() + "_vs.glsl";
+        let fs_path = shader_path + "_fs.glsl";
+
+        info!("Loading vertex shader in path {vs_path}");
+        info!("Loading fragment shader in path {fs_path}");
+
         let vs_src = std::fs::read_to_string(vs_path).unwrap();
         let fs_src = std::fs::read_to_string(fs_path).unwrap();
 
@@ -46,17 +59,6 @@ impl Shader {
             Self(program)
         }
     }
-    pub(super) fn bind(self, gl: &glow::Context) {
-        unsafe {
-            gl.use_program(Some(self.0));
-        }
-    }
-
-    pub(super) fn unbind(self, gl: &glow::Context) {
-        unsafe {
-            gl.use_program(None);
-        }
-    }
 
     pub(super) fn uniform_location(
         self,
@@ -65,16 +67,40 @@ impl Shader {
     ) -> Option<glow::UniformLocation> {
         unsafe { gl.get_uniform_location(self.0, name) }
     }
+
+    pub(super) fn bind(&self, gl: &glow::Context) {
+        unsafe {
+            gl.use_program(Some(self.0));
+        }
+    }
+}
+
+impl ScopedBind for Shader {
+    fn scoped_bind<'a>(&self, gl: &'a glow::Context) -> UnbindOnDrop<'a, Self> {
+        unsafe {
+            gl.use_program(Some(self.0));
+        }
+
+        unbind_on_drop!(gl)
+    }
+
+    fn unbind(gl: &glow::Context) {
+        unsafe {
+            gl.use_program(None);
+        }
+    }
 }
 
 pub(super) struct Shaders {
     pub node: Shader,
+    pub fullscreen: Shader,
 }
 
 impl Shaders {
     pub(super) fn new(gl: &glow::Context) -> Self {
         Self {
-            node: Shader::new(gl, "data/shaders/node_vs.glsl", "data/shaders/node_fs.glsl"),
+            node: Shader::new(gl, "node"),
+            fullscreen: Shader::new(gl, "fullscreen"),
         }
     }
 }

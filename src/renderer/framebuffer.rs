@@ -1,21 +1,34 @@
 use glow::HasContext;
+use log::info;
+
+use crate::unbind_on_drop;
+
+use super::binding::{ScopedBind, UnbindOnDrop};
 
 #[derive(Copy, Clone)]
-pub(super) struct Framebuffer(glow::Framebuffer);
+pub(super) struct Framebuffer {
+    pub fbo: glow::Framebuffer,
+    pub color_buffer: glow::Texture,
+    pub depth_buffer: Option<glow::Renderbuffer>,
+}
 
-impl Framebuffer {
-    pub(super) fn bind(self, gl: &glow::Context) {
+impl ScopedBind for Framebuffer {
+    fn scoped_bind<'a>(&self, gl: &'a glow::Context) -> UnbindOnDrop<'a, Self> {
         unsafe {
-            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.0));
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
         }
+        unbind_on_drop!(gl)
     }
 
-    pub(super) fn unbind(self, gl: &glow::Context) {
+    fn unbind(gl: &glow::Context) {
+        info!("Framebuffer::unbind");
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
     }
+}
 
+impl Framebuffer {
     pub(super) fn read_pixel_from_stencil(self, gl: &glow::Context, (x, y): (i32, i32)) -> u8 {
         let mut slice = [0; 1];
         unsafe {
@@ -31,6 +44,12 @@ impl Framebuffer {
         }
 
         slice[0]
+    }
+
+    pub fn bind(&self, gl: &glow::Context) {
+        unsafe {
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
+        }
     }
 }
 
@@ -58,11 +77,10 @@ impl FramebufferBuilder {
     pub fn build(self, gl: &glow::Context) -> Framebuffer {
         unsafe {
             let fbo = gl.create_framebuffer().unwrap();
-            let fbo = Framebuffer(fbo);
 
-            fbo.bind(gl);
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
 
-            {
+            let color_buffer = {
                 let color_buffer = gl.create_texture().unwrap();
 
                 gl.bind_texture(glow::TEXTURE_2D, Some(color_buffer));
@@ -98,9 +116,11 @@ impl FramebufferBuilder {
                     Some(color_buffer),
                     0,
                 );
-            }
 
-            if self.depth_buffer {
+                color_buffer
+            };
+
+            let depth_buffer = if self.depth_buffer {
                 let depth_stencil = gl.create_renderbuffer().unwrap();
                 gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_stencil));
 
@@ -119,16 +139,24 @@ impl FramebufferBuilder {
                     glow::RENDERBUFFER,
                     Some(depth_stencil),
                 );
-            }
+
+                Some(depth_stencil)
+            } else {
+                None
+            };
 
             assert_eq!(
                 gl.check_framebuffer_status(glow::FRAMEBUFFER),
                 glow::FRAMEBUFFER_COMPLETE
             );
 
-            fbo.unbind(gl);
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 
-            fbo
+            Framebuffer {
+                fbo,
+                color_buffer,
+                depth_buffer,
+            }
         }
     }
 }

@@ -2,7 +2,13 @@ use bytemuck::{NoUninit, cast_slice};
 use glow::HasContext;
 use log::info;
 
-trait Vertex: Clone + Copy + NoUninit {}
+use crate::unbind_on_drop;
+
+use super::binding::{ScopedBind, UnbindOnDrop};
+
+trait Vertex: Clone + Copy + NoUninit {
+    fn attributes(gl: &glow::Context);
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, NoUninit)]
@@ -11,7 +17,24 @@ struct NodeVertex {
     normal: [f32; 3],
 }
 
-impl Vertex for NodeVertex {}
+impl Vertex for NodeVertex {
+    fn attributes(gl: &glow::Context) {
+        unsafe {
+            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, size_of::<Self>() as i32, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            gl.vertex_attrib_pointer_f32(
+                1,
+                3,
+                glow::FLOAT,
+                false,
+                size_of::<Self>() as i32,
+                size_of::<[f32; 3]>() as i32,
+            );
+            gl.enable_vertex_attrib_array(1);
+        }
+    }
+}
 
 impl NodeVertex {
     fn load_sphere() -> (Vec<Self>, Option<Vec<u32>>) {
@@ -52,7 +75,24 @@ struct FullscreenTriangleVertex {
     tex_coord: [f32; 2],
 }
 
-impl Vertex for FullscreenTriangleVertex {}
+impl Vertex for FullscreenTriangleVertex {
+    fn attributes(gl: &glow::Context) {
+        unsafe {
+            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, size_of::<Self>() as i32, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            gl.vertex_attrib_pointer_f32(
+                1,
+                2,
+                glow::FLOAT,
+                false,
+                size_of::<Self>() as i32,
+                size_of::<[f32; 2]>() as i32,
+            );
+            gl.enable_vertex_attrib_array(1);
+        }
+    }
+}
 
 impl FullscreenTriangleVertex {
     fn new() -> Vec<Self> {
@@ -96,6 +136,8 @@ impl Mesh {
                 glow::STATIC_DRAW,
             );
 
+            T::attributes(gl);
+
             let ibo = if let Some(ref indices) = indices {
                 let ibo = gl.create_buffer().unwrap();
                 gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
@@ -108,19 +150,6 @@ impl Mesh {
             } else {
                 None
             };
-
-            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, size_of::<T>() as i32, 0);
-            gl.enable_vertex_attrib_array(0);
-
-            gl.vertex_attrib_pointer_f32(
-                1,
-                3,
-                glow::FLOAT,
-                false,
-                size_of::<T>() as i32,
-                size_of::<[f32; 3]>() as i32,
-            );
-            gl.enable_vertex_attrib_array(1);
 
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
             gl.bind_vertex_array(None);
@@ -140,11 +169,22 @@ impl Mesh {
             gl.bind_vertex_array(Some(self.vao));
         }
     }
+}
 
-    pub(super) fn unbind(&self, gl: &glow::Context) {
+impl ScopedBind for Mesh {
+    fn scoped_bind<'a>(&self, gl: &'a glow::Context) -> UnbindOnDrop<'a, Self> {
+        unsafe {
+            gl.bind_vertex_array(Some(self.vao));
+        }
+
+        unbind_on_drop!(gl)
+    }
+
+    fn unbind(gl: &glow::Context) {
         unsafe {
             gl.bind_vertex_array(None);
         }
+        info!("Mesh::unbind");
     }
 }
 

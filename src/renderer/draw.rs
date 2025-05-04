@@ -11,6 +11,7 @@ use super::shader::Shader;
 pub(super) struct NodeDrawItem {
     pub position: Position,
     pub material: Material,
+    pub idx: i32,
 }
 
 impl NodeDrawItem {
@@ -20,6 +21,7 @@ impl NodeDrawItem {
             .map(|i| Self {
                 position: world.positions[i],
                 material: world.materials[i],
+                idx: i.as_idx() as i32,
             })
             .collect::<Vec<_>>()
     }
@@ -27,23 +29,24 @@ impl NodeDrawItem {
     pub(super) fn set_uniforms(&self, gl: &glow::Context, shader: Shader) {
         let NodeDrawItem {
             position: pos,
-            material: _mat,
+            material: mat,
+            idx: _idx,
         } = self;
 
         let model_loc = shader.uniform_location(gl, "Model").unwrap();
         let model = mat4_to_vec(Matrix4::<f32>::from_translation(pos.0));
 
         let albedo_loc = shader.uniform_location(gl, "Albedo").unwrap();
-        let albedo = self.material.albedo;
+        let albedo = mat.albedo;
 
         let roughness_loc = shader.uniform_location(gl, "Roughness").unwrap();
-        let roughness = self.material.roughness;
+        let roughness = mat.roughness;
 
         let metallic_loc = shader.uniform_location(gl, "Metallic").unwrap();
-        let metallic = self.material.metallic;
+        let metallic = mat.metallic;
 
         let ao_loc = shader.uniform_location(gl, "Ao").unwrap();
-        let ao = self.material.ao;
+        let ao = mat.ao;
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&model_loc), false, model.as_slice());

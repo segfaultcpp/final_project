@@ -6,8 +6,8 @@ use winit::{error::EventLoopError, event::WindowEvent};
 mod base;
 mod context;
 
-pub const WINDOW_WIDTH: u32 = 1280;
-pub const WINDOW_HEIGHT: u32 = 720;
+pub const WINDOW_WIDTH: u32 = 1920;
+pub const WINDOW_HEIGHT: u32 = 1080;
 
 pub trait UserApp {
     fn init_renderer(&mut self, gl: Arc<glow::Context>);
