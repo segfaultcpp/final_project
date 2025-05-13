@@ -184,7 +184,6 @@ impl ScopedBind for Mesh {
         unsafe {
             gl.bind_vertex_array(None);
         }
-        info!("Mesh::unbind");
     }
 }
 

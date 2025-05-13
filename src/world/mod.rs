@@ -1,5 +1,6 @@
 use camera::Camera;
 use cgmath::{Array, Matrix4, Point3, Vector3};
+use log::info;
 
 use crate::{
     app::{WINDOW_HEIGHT, WINDOW_WIDTH},
@@ -12,7 +13,7 @@ use crate::{
 
 pub mod camera;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Position(pub Vector3<f32>);
 
 impl Position {
@@ -39,6 +40,8 @@ pub struct Material {
 
 impl Material {
     pub fn update_albedo(&mut self, b: f64, min_b: f64, max_b: f64) {
+        assert!(b <= max_b && b >= min_b);
+
         let k = (b - min_b) / (max_b - min_b);
         self.albedo = Self::mix_color((0.0, 1.0, 0.0).into(), (1.0, 0.0, 0.0).into(), k as f32);
     }
@@ -114,11 +117,10 @@ impl WorldData {
     pub fn update_materials(&mut self, iter: &Iteration) {
         let Iteration { graph, info } = iter;
         for i in graph.tracker.iter_alive() {
-            self.materials[i].update_albedo(
-                info.betweenness[i],
-                info.min_betweenness,
-                info.max_betweenness,
-            );
+            let min = info.betweenness[info.min_betweenness];
+            let max = info.betweenness[info.max_betweenness];
+
+            self.materials[i].update_albedo(info.betweenness[i], min, max);
         }
     }
 }

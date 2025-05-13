@@ -14,7 +14,9 @@ egui = { version = "0.31.1", default-features = false, features = [
   "bytemuck",
   "default_fonts",
 ] }
+transform-gizmo-egui = { version = "0.5.0" }
 egui_extras = "0.31.1"
+egui-gizmo = { version = "0.16.2" }
 egui-winit = { version = "0.31.1", default-features = false }
 egui_glow = { version = "0.31.1", default-features = false, features = [
   "winit",
@@ -28,6 +30,6 @@ glow = "0.16.0"
 glutin = "0.32.2"
 glutin-winit = "0.5.0"
 
-cgmath = "0.18.0"
+cgmath = { version = "0.18.0", features = ["mint"] }
 tobj = "4.0.3"
 bytemuck = { version = "1.22.0", features = ["derive"] }

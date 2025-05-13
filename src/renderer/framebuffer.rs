@@ -21,7 +21,6 @@ impl ScopedBind for Framebuffer {
     }
 
     fn unbind(gl: &glow::Context) {
-        info!("Framebuffer::unbind");
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         }
@@ -31,6 +30,8 @@ impl ScopedBind for Framebuffer {
 impl Framebuffer {
     pub(super) fn read_pixel_from_stencil(self, gl: &glow::Context, (x, y): (i32, i32)) -> u8 {
         let mut slice = [0; 1];
+        self.bind(gl);
+
         unsafe {
             gl.read_pixels(
                 x,
@@ -42,6 +43,8 @@ impl Framebuffer {
                 glow::PixelPackData::Slice(Some(&mut slice)),
             );
         }
+
+        Self::unbind(gl);
 
         slice[0]
     }

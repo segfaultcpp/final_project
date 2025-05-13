@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use base::AppBase;
-use winit::{error::EventLoopError, event::WindowEvent};
+use winit::{
+    error::EventLoopError,
+    event::{DeviceEvent, WindowEvent},
+};
 
 mod base;
 mod context;
@@ -12,8 +15,10 @@ pub const WINDOW_HEIGHT: u32 = 1080;
 pub trait UserApp {
     fn init_renderer(&mut self, gl: Arc<glow::Context>);
     fn ui_layout(&mut self, egui_ctx: &egui::Context);
+    fn update(&mut self, delta: Duration);
     fn render(&mut self, gl: Arc<glow::Context>);
-    fn handle_event(&mut self, event: WindowEvent);
+    fn handle_window_events(&mut self, event: WindowEvent);
+    fn handle_device_events(&mut self, event: DeviceEvent);
 }
 
 pub struct App<U: UserApp> {

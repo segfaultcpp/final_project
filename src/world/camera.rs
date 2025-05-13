@@ -1,4 +1,4 @@
-use cgmath::{InnerSpace, Matrix4, Point3, Vector2, Vector3};
+use cgmath::{Angle, Deg, InnerSpace, Matrix4, Point3, Vector2, Vector3};
 
 #[derive(Clone, Copy)]
 pub enum CameraMovement {
@@ -31,7 +31,7 @@ pub struct Camera {
 impl Camera {
     const DEFAULT_YAW: f32 = -90.0;
     const DEFAULT_PITCH: f32 = 0.0;
-    const DEFAULT_SPEED: f32 = 5.0;
+    const DEFAULT_SPEED: f32 = 10.0;
     const DEFAULT_SENSITIVITY: f32 = 0.1;
 
     pub fn new() -> Self {
@@ -58,6 +58,24 @@ impl Camera {
         Matrix4::<f32>::look_at_rh(self.position, self.position + self.front, self.up)
     }
 
+    pub fn view_mat_f64(&self) -> Matrix4<f64> {
+        let position = Point3::<f64>::new(
+            self.position.x as f64,
+            self.position.y as f64,
+            self.position.z as f64,
+        );
+
+        let front = Vector3::<f64>::new(
+            self.front.x as f64,
+            self.front.y as f64,
+            self.front.z as f64,
+        );
+
+        let up = Vector3::<f64>::new(self.up.x as f64, self.up.y as f64, self.up.z as f64);
+
+        Matrix4::<f64>::look_at_rh(position, position + front, up)
+    }
+
     pub fn position(&self) -> Point3<f32> {
         self.position
     }
@@ -74,6 +92,17 @@ impl Camera {
             Up => self.position += self.world_up * velocity,
             Down => self.position -= self.world_up * velocity,
         }
+    }
+
+    pub fn process_mouse_motion(&mut self, (x, y): (f64, f64), delta: f32) {
+        const SPEED: f32 = 4.0;
+        self.position -= self.right * x as f32 * delta * SPEED;
+        self.position += self.world_up * y as f32 * delta * SPEED;
+    }
+
+    pub fn process_mouse_zoom(&mut self, y: f64, delta: f32) {
+        const SPEED: f32 = 4.0;
+        self.position -= self.front * y as f32 * delta * SPEED;
     }
 
     pub fn process_mouse_movement(&mut self, mut offset: Vector2<f32>) {

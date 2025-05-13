@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use binding::ScopedBind;
-use draw::NodeDrawItem;
+use draw::{EdgeDrawItem, NodeDrawItem};
 use framebuffer::{Framebuffer, FramebufferBuilder};
 use glow::HasContext;
 use log::info;
@@ -20,34 +22,42 @@ mod mesh;
 mod shader;
 
 pub struct Renderer {
+    gl: Arc<glow::Context>,
     meshes: Meshes,
     shaders: Shaders,
     framebuffer: Framebuffer,
 }
 
 impl Renderer {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: Arc<glow::Context>) -> Self {
         unsafe {
             gl.enable(glow::MULTISAMPLE);
             gl.enable(glow::DEPTH_TEST);
             gl.depth_func(glow::LESS);
         }
+
+        let meshes = Meshes::new(gl.as_ref());
+        let shaders = Shaders::new(gl.as_ref());
+        let framebuffer =
+            FramebufferBuilder::new(crate::app::WINDOW_WIDTH, crate::app::WINDOW_HEIGHT)
+                .with_depth(true)
+                .build(gl.as_ref());
+
         Self {
-            meshes: Meshes::new(gl),
-            shaders: Shaders::new(gl),
-            framebuffer: FramebufferBuilder::new(
-                crate::app::WINDOW_WIDTH,
-                crate::app::WINDOW_HEIGHT,
-                // 1920, 1080,
-            )
-            .with_depth(true)
-            .build(gl),
+            gl,
+            meshes,
+            shaders,
+            framebuffer,
         }
     }
 
-    pub fn render(&self, gl: &glow::Context, app_state: &AppState) {
+    pub fn render(&self, app_state: &AppState) {
         let tracker = &app_state.compute.state().get().graph.tracker;
-        let items = NodeDrawItem::build(&app_state.world, tracker);
+        let node_items = NodeDrawItem::build(&app_state.world, tracker);
+        let edge_items =
+            EdgeDrawItem::build(&app_state.world, &app_state.compute.state().get().graph);
+
+        let gl = self.gl.as_ref();
 
         unsafe {
             gl.viewport(0, 0, WINDOW_WIDTH as i32, WINDOW_HEIGHT as i32);
@@ -55,14 +65,32 @@ impl Renderer {
 
         {
             self.framebuffer.bind(gl);
-            self.scene_pass(gl, &app_state.world, items.as_slice());
+            self.scene_pass(
+                gl,
+                &app_state.world,
+                node_items.as_slice(),
+                edge_items.as_slice(),
+            );
             Framebuffer::unbind(gl);
         }
 
         self.fullscreen_pass(gl);
     }
 
-    fn scene_pass(&self, gl: &glow::Context, world: &WorldData, items: &[NodeDrawItem]) {
+    pub fn idx_from_stencil(&self, (x, y): (f64, f64)) -> usize {
+        self.framebuffer.read_pixel_from_stencil(
+            self.gl.as_ref(),
+            (x as i64 as i32, (WINDOW_HEIGHT as f64 - y) as i64 as i32),
+        ) as usize
+    }
+
+    fn scene_pass(
+        &self,
+        gl: &glow::Context,
+        world: &WorldData,
+        node_items: &[NodeDrawItem],
+        edge_items: &[EdgeDrawItem],
+    ) {
         unsafe {
             gl.enable(glow::DEPTH_TEST);
             gl.depth_func(glow::LESS);
@@ -73,17 +101,27 @@ impl Renderer {
 
             gl.clear_color(1.0, 1.0, 1.0, 1.0);
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT | glow::STENCIL_BUFFER_BIT);
+
+            gl.line_width(5.0);
         }
 
         self.meshes.node.bind(gl);
+
+        self.shaders.edge.bind(gl);
+        EdgeDrawItem::set_per_pass_uniforms(gl, self.shaders.edge, world);
+        for item in edge_items.iter() {
+            item.set_uniforms(gl, self.shaders.edge);
+            unsafe {
+                gl.draw_arrays(glow::LINES, 0, 2);
+            }
+        }
+
         self.shaders.node.bind(gl);
-
-        self.set_uniforms(gl, world);
-
-        for item in items.iter() {
+        NodeDrawItem::set_per_pass_uniforms(gl, self.shaders.node, world);
+        for item in node_items.iter() {
             item.set_uniforms(gl, self.shaders.node);
             unsafe {
-                gl.stencil_func(glow::ALWAYS, item.idx, 0xff);
+                gl.stencil_func(glow::ALWAYS, item.idx + 1, 0xff);
 
                 gl.draw_elements(
                     glow::TRIANGLES,
@@ -101,6 +139,7 @@ impl Renderer {
             gl.disable(glow::DEPTH_TEST);
             gl.disable(glow::STENCIL_TEST);
             gl.stencil_mask(0);
+            gl.line_width(1.0);
         }
     }
 
@@ -116,23 +155,5 @@ impl Renderer {
 
         Mesh::unbind(gl);
         Shader::unbind(gl);
-    }
-
-    fn set_uniforms(&self, gl: &glow::Context, world: &WorldData) {
-        let view_proj_loc = self.shaders.node.uniform_location(gl, "ViewProj").unwrap();
-        let view_proj = mat4_to_vec(world.projection * world.camera.view_mat());
-
-        let camera_pos_loc = self.shaders.node.uniform_location(gl, "CameraPos").unwrap();
-        let camera_pos = world.camera.position();
-
-        unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(&view_proj_loc), false, view_proj.as_slice());
-            gl.uniform_3_f32(
-                Some(&camera_pos_loc),
-                camera_pos.x,
-                camera_pos.y,
-                camera_pos.z,
-            );
-        }
     }
 }

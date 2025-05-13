@@ -14,21 +14,27 @@ pub struct GraphInfo {
     pub zmax: f64,
     pub beta: f64,
     pub beta_delta: f64,
+    pub capacity: NADVec<f64>,
+    pub min_capacity: Node,
+    pub max_capacity: Node,
     pub betweenness: NADVec<f64>,
-    pub min_betweenness: f64,
-    pub max_betweenness: f64,
+    pub min_betweenness: Node,
+    pub max_betweenness: Node,
 }
 
 impl GraphInfo {
     pub fn new(tracker: &NodeStatusTracker) -> Self {
         Self {
             zs: NADVec::new(tracker),
+            capacity: NADVec::new(tracker),
             betweenness: NADVec::new(tracker),
             zmax: 0.0,
             beta: 0.0,
             beta_delta: 0.0,
-            min_betweenness: 0.0,
-            max_betweenness: 0.0,
+            min_capacity: Node::default(),
+            max_capacity: Node::default(),
+            min_betweenness: Node::default(),
+            max_betweenness: Node::default(),
         }
     }
 }
@@ -53,6 +59,10 @@ impl Graph {
 
     pub fn alive(&self) -> usize {
         self.tracker.alive()
+    }
+
+    pub fn is_adjacent(&self, i: Node, j: Node) -> bool {
+        self.adjacency[(i, j)]
     }
 
     pub fn update_paths(&mut self) -> Option<()> {

@@ -23,11 +23,20 @@ impl From<(Graph, GraphInfo)> for Iteration {
 
 #[derive(Debug, Default)]
 pub struct State {
+    pub alpha: f64,
+    pub ks: Vec<f64>,
     iterations: Vec<Iteration>,
     current_iter: isize,
 }
 
 impl State {
+    pub(super) fn new() -> Self {
+        Self {
+            alpha: 3.0,
+            ..Default::default()
+        }
+    }
+
     pub(super) fn add_iter(&mut self, iter: Iteration) {
         self.iterations.push(iter);
     }

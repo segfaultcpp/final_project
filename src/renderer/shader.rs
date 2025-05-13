@@ -93,6 +93,7 @@ impl ScopedBind for Shader {
 
 pub(super) struct Shaders {
     pub node: Shader,
+    pub edge: Shader,
     pub fullscreen: Shader,
 }
 
@@ -100,6 +101,7 @@ impl Shaders {
     pub(super) fn new(gl: &glow::Context) -> Self {
         Self {
             node: Shader::new(gl, "node"),
+            edge: Shader::new(gl, "edge"),
             fullscreen: Shader::new(gl, "fullscreen"),
         }
     }

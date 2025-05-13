@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use egui_glow::EguiGlow;
 use egui_winit::winit;
@@ -20,7 +23,10 @@ pub(super) struct AppBase<U: super::UserApp> {
     gl_window: Option<GlutinWindowContext>,
     gl: Option<Arc<glow::Context>>,
     egui_glow: Option<egui_glow::EguiGlow>,
-    repaint_delay: std::time::Duration,
+    repaint_delay: Duration,
+
+    current_frame: Instant,
+    last_frame: Instant,
 
     user_app: U,
 }
@@ -33,11 +39,18 @@ impl<U: super::UserApp> AppBase<U> {
             gl: None,
             egui_glow: None,
             repaint_delay: std::time::Duration::MAX,
+            current_frame: Instant::now(),
+            last_frame: Instant::now(),
             user_app,
         }
     }
 
     fn redraw(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.last_frame = self.current_frame;
+        self.current_frame = Instant::now();
+        self.user_app
+            .update(self.current_frame.duration_since(self.last_frame));
+
         self.egui_glow
             .as_mut()
             .unwrap()
@@ -137,12 +150,21 @@ impl<U: super::UserApp> ApplicationHandler<UserEvent> for AppBase<U> {
             .on_window_event(self.gl_window.as_mut().unwrap().window(), &event);
 
         if !event_response.consumed {
-            self.user_app.handle_event(event);
+            self.user_app.handle_window_events(event);
         }
 
         if event_response.repaint {
             self.gl_window.as_mut().unwrap().window().request_redraw();
         }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        self.user_app.handle_device_events(event);
     }
 
     fn user_event(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {

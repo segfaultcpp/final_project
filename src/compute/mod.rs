@@ -15,7 +15,7 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(desc: GraphDesc) -> Self {
-        let mut state = State::default();
+        let mut state = State::new();
         state.add_iter(Iteration::new(desc));
 
         Self {
@@ -38,47 +38,44 @@ impl Compute {
     }
 
     pub fn run(&mut self) {
-        loop {
-            let Iteration { graph, info } = self.state.get_mut();
-            if graph.update_paths().is_none() || graph.alive() == 2 {
+        'outer: loop {
+            let Iteration { graph, .. } = self.state.get_mut();
+            if graph.alive() == 2 {
                 // TODO: kostil
                 assert!(self.state.iter_count() > 1, "Initial graph is invalid");
                 self.state.pop();
-                break;
+                break 'outer;
             }
 
-            for step in self.steps.iter() {
-                step.compute(graph, info);
-            }
-
-            let mut max_b = 0.0;
-            let mut min_b = 0.0;
-            let mut max_node = None;
-            for i in graph.tracker.iter_alive() {
-                assert!(!info.betweenness[i].is_nan());
-
-                if max_b < info.betweenness[i] {
-                    max_b = info.betweenness[i];
-                    max_node = Some(i);
-                }
-
-                if min_b > info.betweenness[i] {
-                    min_b = info.betweenness[i];
+            for step in self.steps.iter_mut() {
+                if !step.compute(&mut self.state) {
+                    break 'outer;
                 }
             }
-
-            let max_node = max_node.unwrap();
-            info.max_betweenness = max_b;
-            info.min_betweenness = min_b;
-            info!("Deleting {max_node:?} with betweenness = {max_b}");
-
-            let mut graph = graph.clone();
-            let info = GraphInfo::new(&graph.tracker);
-
-            graph.delete(max_node);
-
-            self.state.add_iter((graph, info).into());
-            self.state.next();
         }
+    }
+}
+
+pub struct CopyIteration;
+
+impl ComputeStep for CopyIteration {
+    fn compute(&mut self, state: &mut State) -> bool {
+        let Iteration { graph, info } = state.get();
+
+        let graph = graph.clone();
+        let info = info.clone();
+
+        state.add_iter((graph, info).into());
+        state.next();
+
+        true
+    }
+}
+
+pub struct UpdatePaths;
+
+impl ComputeStep for UpdatePaths {
+    fn compute(&mut self, state: &mut State) -> bool {
+        state.get_mut().graph.update_paths().is_some()
     }
 }

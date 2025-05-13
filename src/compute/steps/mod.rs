@@ -1,8 +1,10 @@
-use crate::graph::{Graph, GraphInfo};
+use super::state::State;
 
 pub mod betweeness;
+pub mod capacity;
+pub mod delete;
 pub mod zmax;
 
 pub trait ComputeStep {
-    fn compute(&self, graph: &Graph, info: &mut GraphInfo);
+    fn compute(&mut self, state: &mut State) -> bool;
 }

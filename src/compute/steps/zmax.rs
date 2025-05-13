@@ -1,11 +1,16 @@
-use crate::graph::Graph;
+use crate::{
+    compute::state::{Iteration, State},
+    graph::Graph,
+};
 
 use super::ComputeStep;
 
 pub struct Zmax;
 
 impl ComputeStep for Zmax {
-    fn compute(&self, graph: &Graph, info: &mut crate::graph::GraphInfo) {
+    fn compute(&mut self, state: &mut State) -> bool {
+        let Iteration { graph, info } = state.get_mut();
+
         let mut sum = 0.0;
         for i in graph.tracker.iter_alive() {
             for j in graph.tracker.iter_alive().exclude(i) {
@@ -33,5 +38,7 @@ impl ComputeStep for Zmax {
         info.beta = ((n - 1.0) * (2.0 * info.zmax - n)) / (info.zmax * (n - 2.0));
 
         info.beta_delta = (info.beta - 1.0).abs();
+
+        true
     }
 }
