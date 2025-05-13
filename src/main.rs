@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use app::{App, UserApp};
 use compute::{
     Compute, CopyIteration, UpdatePaths,
+    state::Iteration,
     steps::{
         betweeness::Betweeness,
         capacity::Capacity,
@@ -10,7 +11,7 @@ use compute::{
         zmax::Zmax,
     },
 };
-use graph::{GraphDesc, node::Node};
+use graph::{GraphDesc, NodeDesc, node::Node};
 use input::{Input, Key};
 use log::{LevelFilter, Log, SetLoggerError, info};
 use renderer::Renderer;
@@ -66,9 +67,42 @@ pub struct AppState {
     pub selected_node: Option<Node>,
 }
 
+impl Drop for AppState {
+    fn drop(&mut self) {
+        let Iteration { graph, .. } = self.compute.state().at(0);
+
+        let mut nodes = vec![];
+        for i in graph.tracker.iter_alive() {
+            nodes.push(NodeDesc {
+                node_id: i.as_idx() as u32,
+                nodes: {
+                    let mut nodes = vec![];
+
+                    for j in graph.tracker.iter_alive().exclude(i) {
+                        if graph.is_adjacent(i, j) {
+                            nodes.push(j.as_idx() as u32);
+                        }
+                    }
+
+                    nodes
+                },
+                position: self.world.positions[i].0.into(),
+            })
+        }
+
+        let desc: GraphDesc = nodes.into();
+        let desc = toml::to_string(&desc).unwrap();
+
+        std::fs::write("data/graph_desc.toml", desc.as_str()).unwrap();
+    }
+}
+
 impl AppState {
     fn new() -> Self {
-        let mut compute = Compute::new(GraphDesc::example())
+        let desc = std::fs::read_to_string("data/graph_desc.toml").unwrap();
+        let desc: GraphDesc = toml::from_str(desc.as_str()).unwrap();
+
+        let mut compute = Compute::new(desc.clone())
             .add_step(UpdatePaths)
             .add_step(Zmax)
             .add_step(Betweeness)
@@ -81,7 +115,7 @@ impl AppState {
 
         compute.run();
 
-        let world = WorldData::new(&compute.state().at(0).graph.tracker);
+        let world = WorldData::new(&compute.state().at(0).graph.tracker, desc);
         Self {
             compute,
             world,

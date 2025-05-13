@@ -103,13 +103,14 @@ impl From<GraphDesc> for Graph {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct NodeDesc {
-    node_id: u32,
-    nodes: Vec<u32>,
+    pub node_id: u32,
+    pub position: [f32; 3],
+    pub nodes: Vec<u32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct GraphDesc {
     nodes: Vec<NodeDesc>,
 }
@@ -128,42 +129,52 @@ impl GraphDesc {
             nodes: vec![
                 NodeDesc {
                     node_id: 0,
+                    position: [0.0, 0.0, 0.0],
                     nodes: vec![1, 2, 3],
                 },
                 NodeDesc {
                     node_id: 1,
+                    position: [1.0, 0.0, 0.0],
                     nodes: vec![4, 5],
                 },
                 NodeDesc {
                     node_id: 2,
+                    position: [2.0, 0.0, 0.0],
                     nodes: vec![4, 6],
                 },
                 NodeDesc {
                     node_id: 3,
+                    position: [3.0, 0.0, 0.0],
                     nodes: vec![5, 6],
                 },
                 NodeDesc {
                     node_id: 4,
+                    position: [0.0, 1.0, 0.0],
                     nodes: vec![9],
                 },
                 NodeDesc {
                     node_id: 5,
+                    position: [1.0, 1.0, 0.0],
                     nodes: vec![8],
                 },
                 NodeDesc {
                     node_id: 6,
+                    position: [2.0, 1.0, 0.0],
                     nodes: vec![7],
                 },
                 NodeDesc {
                     node_id: 7,
+                    position: [3.0, 1.0, 0.0],
                     nodes: Vec::new(),
                 },
                 NodeDesc {
                     node_id: 8,
+                    position: [0.0, 2.0, 0.0],
                     nodes: Vec::new(),
                 },
                 NodeDesc {
                     node_id: 9,
+                    position: [1.0, 2.0, 0.0],
                     nodes: Vec::new(),
                 },
             ],
@@ -171,62 +182,24 @@ impl GraphDesc {
     }
 }
 
-mod test {
-    use crate::graph::{NodeDesc, node::Node};
+impl From<Vec<NodeDesc>> for GraphDesc {
+    fn from(nodes: Vec<NodeDesc>) -> Self {
+        Self { nodes }
+    }
+}
 
+mod test {
     use super::{Graph, GraphDesc};
+    use crate::graph::{NodeDesc, node::Node};
 
     #[test]
     fn test_graph_desc() {
-        let desc: GraphDesc = toml::from_str(
-            r#"
-            [[nodes]]
-            node_id = 0
-            nodes = [1, 2, 3]
-            
-            [[nodes]]
-            node_id = 1
-            nodes = [4, 5]
-            
-            [[nodes]]
-            node_id = 2
-            nodes = [4, 6]
-            
-            [[nodes]]
-            node_id = 3
-            nodes = [5, 6]
-            
-            [[nodes]]
-            node_id = 4
-            nodes = [9]
-            
-            [[nodes]]
-            node_id = 5
-            nodes = [8]
-            
-            [[nodes]]
-            node_id = 6
-            nodes = [7]
-
-            [[nodes]]
-            node_id = 7
-            nodes = []
-            
-            [[nodes]]
-            node_id = 8
-            nodes = []
-            
-            [[nodes]]
-            node_id = 9
-            nodes = []
-        "#,
-        )
-        .unwrap();
-
-        assert_eq!(desc, GraphDesc::example());
-
+        let desc = GraphDesc::example();
         let graph = Graph::from(desc.clone());
-        for NodeDesc { node_id: i, nodes } in desc.nodes().iter() {
+        for NodeDesc {
+            node_id: i, nodes, ..
+        } in desc.nodes().iter()
+        {
             for j in nodes.iter() {
                 let (i, j) = unsafe { (Node::new(*i), Node::new(*j)) };
 

@@ -74,7 +74,10 @@ impl From<GraphDesc> for Mat<bool> {
         let count = value.node_count();
         let mut mat = Self::new(count);
 
-        for NodeDesc { node_id: i, nodes } in value.nodes().iter() {
+        for NodeDesc {
+            node_id: i, nodes, ..
+        } in value.nodes().iter()
+        {
             for j in nodes.iter() {
                 assert_ne!(*i, *j);
                 assert!(*i < count as u32);

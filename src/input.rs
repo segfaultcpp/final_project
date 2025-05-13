@@ -1,3 +1,4 @@
+use cgmath::Point3;
 use winit::event::{ElementState, MouseScrollDelta};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,6 +30,10 @@ impl Input {
             mouse_motion: (0.0, 0.0),
             mouse_position: (0.0, 0.0),
         }
+    }
+
+    pub fn mouse_to_world(&self) -> Point3<f32> {
+        todo!()
     }
 
     pub fn update(&mut self) {

@@ -25,6 +25,7 @@ impl From<(Graph, GraphInfo)> for Iteration {
 pub struct State {
     pub alpha: f64,
     pub ks: Vec<f64>,
+    pub beta_deltas: Vec<f64>,
     iterations: Vec<Iteration>,
     current_iter: isize,
 }

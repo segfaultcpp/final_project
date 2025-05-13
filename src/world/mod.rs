@@ -6,7 +6,7 @@ use crate::{
     app::{WINDOW_HEIGHT, WINDOW_WIDTH},
     compute::state::Iteration,
     graph::{
-        GraphInfo,
+        GraphDesc, GraphInfo,
         node::{NADVec, NodeStatusTracker},
     },
 };
@@ -78,36 +78,26 @@ pub struct WorldData {
 }
 
 impl WorldData {
-    pub fn new(tracker: &NodeStatusTracker) -> Self {
+    pub fn new(tracker: &NodeStatusTracker, desc: GraphDesc) -> Self {
         Self {
-            positions: Self::init_positions(tracker),
+            positions: Self::init_positions(tracker, desc.nodes().iter().map(|n| n.position)),
             materials: Self::init_materials(tracker),
             camera: Camera::new(),
             projection: cgmath::perspective(cgmath::Deg(50.0), 16.0 / 9.0, 0.001, 100.0),
         }
     }
 
-    fn init_positions(tracker: &NodeStatusTracker) -> NADVec<Position> {
-        let width = (tracker.node_count() as f64).sqrt().ceil() as usize;
-        let mut positions = NADVec::<Position>::new(tracker);
+    fn init_positions(
+        tracker: &NodeStatusTracker,
+        positions: impl Iterator<Item = [f32; 3]>,
+    ) -> NADVec<Position> {
+        let mut ret = NADVec::<Position>::new(tracker);
 
-        let mut row = 0;
-        let mut column = 0;
-        let step = 6.0;
-        for (i, node) in tracker.iter_alive().enumerate() {
-            if i != 0 && i % width == 0 {
-                row += 1;
-                column = 0;
-            }
-
-            let x = column as f32 * step;
-            let y = row as f32 * step;
-
-            positions[node].0 = (x, y, 0.0).into();
-            column += 1;
+        for (i, position) in tracker.iter_alive().zip(positions) {
+            ret[i] = Position(position.into());
         }
 
-        positions
+        ret
     }
 
     fn init_materials(tracker: &NodeStatusTracker) -> NADVec<Material> {
