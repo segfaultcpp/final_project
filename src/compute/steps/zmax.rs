@@ -1,9 +1,5 @@
-use crate::{
-    compute::state::{Iteration, State},
-    graph::Graph,
-};
-
 use super::ComputeStep;
+use crate::compute::state::{Iteration, State};
 
 pub struct Zmax;
 

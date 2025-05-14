@@ -1,5 +1,3 @@
-use log::info;
-
 use crate::compute::state::{Iteration, State};
 
 use super::ComputeStep;

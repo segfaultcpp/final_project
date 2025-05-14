@@ -130,6 +130,7 @@ impl<T: Default + Clone> IndexMut<Node> for NADVec<T> {
 }
 
 mod test {
+    #[allow(unused_imports)]
     use super::{Node, NodeStatusTracker};
 
     #[test]

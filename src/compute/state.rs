@@ -31,9 +31,9 @@ pub struct State {
 }
 
 impl State {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(alpha: f64) -> Self {
         Self {
-            alpha: 3.0,
+            alpha,
             ..Default::default()
         }
     }

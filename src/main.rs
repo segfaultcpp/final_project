@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use app::{App, UserApp};
+use cgmath::Point3;
 use compute::{
     Compute, CopyIteration, UpdatePaths,
     state::Iteration,
@@ -90,7 +91,11 @@ impl Drop for AppState {
             })
         }
 
-        let desc: GraphDesc = nodes.into();
+        let desc = GraphDesc {
+            alpha: self.compute.state().alpha,
+            nodes,
+        };
+
         let desc = toml::to_string(&desc).unwrap();
 
         std::fs::write("data/graph_desc.toml", desc.as_str()).unwrap();
@@ -129,6 +134,8 @@ struct MyApp {
     app_state: AppState,
     ui_state: UiState,
     input: Input,
+
+    prev_mouse_pos: Point3<f32>,
 }
 
 impl MyApp {
@@ -138,6 +145,7 @@ impl MyApp {
             app_state: AppState::new(),
             ui_state: Default::default(),
             input: Default::default(),
+            prev_mouse_pos: [0.0, 0.0, 0.0].into(),
         }
     }
 }
@@ -213,9 +221,14 @@ impl UserApp for MyApp {
             if let Some(node) = self.app_state.selected_node {
                 let position = &mut self.app_state.world.positions[node].0;
                 let (x, y) = self.input.mouse_motion;
-                position.x += x as f32 * 3.0 * delta.as_secs_f32();
-                position.y -= y as f32 * 3.0 * delta.as_secs_f32();
+                position.x += x as f32 * 3.5 * delta.as_secs_f32();
+                position.y -= y as f32 * 3.5 * delta.as_secs_f32();
             }
+        }
+
+        if self.input.is_pressed(Key::Lctrl) && self.input.is_pressed(Key::Lmb) {
+            let pos = self.input.mouse_to_world(&self.app_state.world);
+            info!("{pos:?}");
         }
 
         self.input.update();
@@ -266,6 +279,14 @@ impl UserApp for MyApp {
 
                     if matches!(code, KeyCode::ArrowDown) {
                         self.input.set(Key::ArrowDown, event.state);
+                    }
+
+                    if matches!(code, KeyCode::ControlLeft) {
+                        self.input.set(Key::Lctrl, event.state);
+                    }
+
+                    if matches!(code, KeyCode::AltLeft) {
+                        self.input.set(Key::Lalt, event.state);
                     }
                 }
             }

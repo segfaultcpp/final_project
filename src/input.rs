@@ -1,5 +1,10 @@
-use cgmath::Point3;
+use cgmath::{InnerSpace, Point3, SquareMatrix, Vector4};
 use winit::event::{ElementState, MouseScrollDelta};
+
+use crate::{
+    app::{WINDOW_HEIGHT, WINDOW_WIDTH},
+    world::WorldData,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(usize)]
@@ -12,6 +17,8 @@ pub enum Key {
     D,
     ArrowUp,
     ArrowDown,
+    Lctrl,
+    Lalt,
     Count,
 }
 
@@ -32,8 +39,38 @@ impl Input {
         }
     }
 
-    pub fn mouse_to_world(&self) -> Point3<f32> {
-        todo!()
+    pub fn mouse_to_world(&self, world: &WorldData) -> Point3<f32> {
+        let (x, y) = (
+            self.mouse_position.0 as f32,
+            WINDOW_HEIGHT as f32 - self.mouse_position.1 as f32,
+        );
+
+        let ray_start = Vector4::<f32>::new(
+            (x / WINDOW_WIDTH as f32 - 0.5) * 2.0,
+            (y / WINDOW_HEIGHT as f32 - 0.5) * 2.0,
+            -1.0,
+            1.0,
+        );
+        let ray_end = Vector4::<f32>::new(
+            (x / WINDOW_WIDTH as f32 - 0.5) * 2.0,
+            (y / WINDOW_HEIGHT as f32 - 0.5) * 2.0,
+            0.0,
+            1.0,
+        );
+
+        let inv_vp = (world.projection * world.camera.view_mat())
+            .invert()
+            .unwrap();
+
+        let mut ray_start = inv_vp * ray_start;
+        ray_start /= ray_start.w;
+
+        let mut ray_end = inv_vp * ray_end;
+        ray_end /= ray_end.w;
+
+        let ray = (ray_end - ray_start).normalize();
+        //world.camera.position() + Vector3::new(ray.x, ray.y, ray.z)
+        Point3::new(ray.x, ray.y, ray.z)
     }
 
     pub fn update(&mut self) {

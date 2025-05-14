@@ -43,7 +43,9 @@ impl ComputeStep for DeleteOverloaded {
             graph.delete(*i);
         }
 
-        state.ks.push(1.0 / retired.len() as f64);
+        if !retired.is_empty() {
+            state.ks.push(1.0 / retired.len() as f64);
+        }
 
         true
     }

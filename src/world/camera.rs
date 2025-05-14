@@ -1,4 +1,4 @@
-use cgmath::{Angle, Deg, InnerSpace, Matrix4, Point3, Vector2, Vector3};
+use cgmath::{InnerSpace, Matrix4, Point3, Vector2, Vector3};
 
 #[derive(Clone, Copy)]
 pub enum CameraMovement {

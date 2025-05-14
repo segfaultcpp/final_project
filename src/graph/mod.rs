@@ -112,7 +112,8 @@ pub struct NodeDesc {
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct GraphDesc {
-    nodes: Vec<NodeDesc>,
+    pub alpha: f64,
+    pub nodes: Vec<NodeDesc>,
 }
 
 impl GraphDesc {
@@ -126,6 +127,7 @@ impl GraphDesc {
 
     pub fn example() -> Self {
         Self {
+            alpha: 3.0,
             nodes: vec![
                 NodeDesc {
                     node_id: 0,
@@ -182,13 +184,8 @@ impl GraphDesc {
     }
 }
 
-impl From<Vec<NodeDesc>> for GraphDesc {
-    fn from(nodes: Vec<NodeDesc>) -> Self {
-        Self { nodes }
-    }
-}
-
 mod test {
+    #![allow(unused_imports)]
     use super::{Graph, GraphDesc};
     use crate::graph::{NodeDesc, node::Node};
 

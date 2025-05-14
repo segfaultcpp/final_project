@@ -14,10 +14,11 @@ egui = { version = "0.31.1", default-features = false, features = [
   "bytemuck",
   "default_fonts",
 ] }
-transform-gizmo-egui = { version = "0.5.0" }
+transform-gizmo-egui = { version = "0.6.0" }
 egui_extras = "0.31.1"
 egui-gizmo = { version = "0.16.2" }
 egui-winit = { version = "0.31.1", default-features = false }
+egui_plot = "0.32.1"
 egui_glow = { version = "0.31.1", default-features = false, features = [
   "winit",
   "wayland",

@@ -186,9 +186,9 @@ impl<'a, T> Iterator for RowIter<'a, T> {
 }
 
 mod test {
-    use crate::graph::node::{Node, NodeStatusTracker};
-
+    #![allow(unused_imports)]
     use super::Mat;
+    use crate::graph::node::{Node, NodeStatusTracker};
 
     #[test]
     fn mat_test() {

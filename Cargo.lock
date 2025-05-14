@@ -466,6 +466,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_plot"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14ae092b46ea532f6c69d3e71036fb3b688fd00fd09c2a1e43d17051a8ae43e6"
+dependencies = [
+ "ahash",
+ "egui 0.31.1",
+ "emath 0.31.1",
+]
+
+[[package]]
 name = "emath"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -599,6 +610,7 @@ dependencies = [
  "egui-winit",
  "egui_extras",
  "egui_glow",
+ "egui_plot",
  "glow",
  "glutin",
  "glutin-winit",
@@ -1767,9 +1779,9 @@ checksum = "e672c95779cf947c5311f83787af4fa8fffd12fb27e4993211a84bdfd9610f9c"
 
 [[package]]
 name = "transform-gizmo"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f99523780b9ee546f43e2485a1f708bc1082ba0aeda73f18690b9e6a1bf7c157"
+checksum = "a1ed25525836e568f1360098b7ca7bbe9feba4a8dc8c6e4e7efe5d9848f91631"
 dependencies = [
  "ahash",
  "ecolor 0.31.1",
@@ -1783,9 +1795,9 @@ dependencies = [
 
 [[package]]
 name = "transform-gizmo-egui"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a10cf575ea95c5b06f7d86495063da0bc045d4767df1aefc1099ccbfe03a4700"
+checksum = "d78f6eaec42f665eac116bb0a0c574109096d695144651b02afc767b055e0f49"
 dependencies = [
  "egui 0.31.1",
  "transform-gizmo",

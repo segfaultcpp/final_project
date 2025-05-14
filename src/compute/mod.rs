@@ -1,8 +1,7 @@
-use log::info;
 use state::{Iteration, State};
 use steps::ComputeStep;
 
-use crate::graph::{GraphDesc, GraphInfo};
+use crate::graph::GraphDesc;
 
 pub mod state;
 pub mod steps;
@@ -15,7 +14,7 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(desc: GraphDesc) -> Self {
-        let mut state = State::new();
+        let mut state = State::new(desc.alpha);
         state.add_iter(Iteration::new(desc));
 
         Self {

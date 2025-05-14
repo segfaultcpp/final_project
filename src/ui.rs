@@ -1,4 +1,4 @@
-use cgmath::{Matrix4, Quaternion, Vector3};
+use cgmath::{Quaternion, Vector3};
 use egui::{Label, Slider};
 use egui_extras::{Column, TableBuilder};
 use transform_gizmo_egui::{
@@ -21,6 +21,7 @@ impl UiState {
     pub fn show(&mut self, egui_ctx: &egui::Context, app_state: &mut AppState) {
         self.show_compute_info(egui_ctx, app_state);
         self.show_material_editor(egui_ctx, app_state);
+        self.show_plots(egui_ctx, app_state);
     }
 
     fn show_compute_info(&mut self, egui_ctx: &egui::Context, app_state: &mut AppState) {
@@ -38,6 +39,16 @@ impl UiState {
             .default_width(1000.0)
             .show(egui_ctx, |ui| {
                 ui.add(Slider::new(&mut alpha, 0.0..=5.0).text("Alpha"));
+
+                ui.add(Label::new(format!(
+                    "Beta = {:.2}",
+                    compute_state.get().info.beta
+                )));
+
+                ui.add(
+                    Slider::new(&mut self.selected_item, 0..=compute_state.iter_count() - 1)
+                        .text("Iteration"),
+                );
 
                 egui::ComboBox::from_label("Iterations")
                     .selected_text(format!("Iteration {}", self.selected_item))
@@ -82,7 +93,7 @@ impl UiState {
 
                                 row.col(|ui| {
                                     let z = info.zs[i];
-                                    ui.label(format!("{z:.3}"));
+                                    ui.label(format!("{z:.2}"));
                                 });
 
                                 row.col(|ui| {
@@ -131,6 +142,40 @@ impl UiState {
             });
     }
 
+    fn show_plots(&self, egui_ctx: &egui::Context, app_state: &mut AppState) {
+        let state = app_state.compute.state();
+
+        egui::Window::new("Plots")
+            .resizable(true)
+            .default_open(false)
+            .show(egui_ctx, |ui| {
+                let bd_points: egui_plot::PlotPoints<'_> = (0..state.beta_deltas.len())
+                    .zip(state.beta_deltas.iter())
+                    .map(|(i, d)| [i as f64, *d])
+                    .collect();
+
+                let k_points: egui_plot::PlotPoints<'_> = (0..state.ks.len())
+                    .zip(state.ks.iter())
+                    .map(|(i, k)| [i as f64, *k])
+                    .collect();
+
+                egui_plot::Plot::new("Beta Delta")
+                    .show_axes(true)
+                    .show_grid(true)
+                    .show(ui, |ui| {
+                        ui.line(egui_plot::Line::new("Beta Delta Lines", bd_points));
+                    });
+
+                egui_plot::Plot::new("Coefficient")
+                    .show_axes(true)
+                    .show_grid(true)
+                    .show(ui, |ui| {
+                        ui.line(egui_plot::Line::new("Coefficient Lines", k_points));
+                    });
+            });
+    }
+
+    #[allow(unused)]
     fn show_gizmo(&self, ui: &mut egui::Ui, app_state: &mut AppState) {
         let Some(selected_node) = app_state.selected_node else {
             return;
