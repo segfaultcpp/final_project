@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
 use app::{App, UserApp};
-use cgmath::Point3;
 use compute::{
     Compute, CopyIteration, UpdatePaths,
     state::Iteration,
@@ -17,7 +16,8 @@ use input::{Input, Key};
 use log::{LevelFilter, Log, SetLoggerError, info};
 use renderer::Renderer;
 use simple_logger::SimpleLogger;
-use ui::UiState;
+use ui::UiTabManager;
+use ui_legacy::UiState;
 use winit::{
     event::{DeviceEvent, MouseButton, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
@@ -30,6 +30,7 @@ mod graph;
 mod input;
 mod renderer;
 mod ui;
+mod ui_legacy;
 mod world;
 
 struct LoggerWrapper(SimpleLogger);
@@ -62,7 +63,15 @@ impl Log for LoggerWrapper {
     }
 }
 
+#[derive(Default, Clone)]
+pub enum AppMode {
+    #[default]
+    Editor,
+    RunResult, // TODO:
+}
+
 pub struct AppState {
+    pub mode: AppMode,
     pub compute: Compute,
     pub world: WorldData,
     pub selected_node: Option<Node>,
@@ -125,6 +134,7 @@ impl AppState {
             compute,
             world,
             selected_node: None,
+            mode: Default::default(),
         }
     }
 }
@@ -135,17 +145,20 @@ struct MyApp {
     ui_state: UiState,
     input: Input,
 
-    prev_mouse_pos: Point3<f32>,
+    tab_manager: UiTabManager,
 }
 
 impl MyApp {
     fn init() -> Self {
+        let app_state = AppState::new();
+        let tab_manager = UiTabManager::new(&app_state.world);
+
         Self {
             renderer: None,
-            app_state: AppState::new(),
+            app_state,
+            tab_manager,
             ui_state: Default::default(),
             input: Default::default(),
-            prev_mouse_pos: [0.0, 0.0, 0.0].into(),
         }
     }
 }
@@ -246,7 +259,8 @@ impl UserApp for MyApp {
     }
 
     fn ui_layout(&mut self, egui_ctx: &egui::Context) {
-        self.ui_state.show(egui_ctx, &mut self.app_state);
+        self.tab_manager.show(egui_ctx);
+        // self.ui_state.show(egui_ctx, &mut self.app_state);
     }
 
     fn handle_window_events(&mut self, event: WindowEvent) {
