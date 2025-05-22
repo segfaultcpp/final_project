@@ -1,40 +1,37 @@
 use cgmath::Matrix4;
 use glow::HasContext;
-use log::info;
-
-use crate::{
-    AppState,
-    compute::state::Iteration,
-    graph::{Graph, node::NodeStatusTracker},
-    world::{Material, Position, WorldData, mat4_to_vec},
-};
 
 use super::shader::Shader;
+use crate::world::{Material, PROJECTION, Position, camera::Camera, mat4_to_vec};
 
-pub(super) struct NodeDrawItem {
+pub struct NodeDrawItem {
     pub position: Position,
     pub material: Material,
     pub idx: i32,
 }
 
 impl NodeDrawItem {
-    pub(super) fn build(world: &WorldData, tracker: &NodeStatusTracker) -> Vec<Self> {
-        tracker
-            .iter_alive()
-            .map(|i| Self {
-                position: world.positions[i],
-                material: world.materials[i],
-                idx: i.as_idx() as i32,
+    pub fn build<'a>(
+        positions: impl Iterator<Item = &'a Position>,
+        materials: impl Iterator<Item = &'a Material>,
+    ) -> Vec<Self> {
+        positions
+            .zip(materials)
+            .enumerate()
+            .map(|(i, (p, m))| Self {
+                position: *p,
+                material: *m,
+                idx: i as i32,
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
-    pub(super) fn set_per_pass_uniforms(gl: &glow::Context, shader: Shader, world: &WorldData) {
+    pub(super) fn set_per_pass_uniforms(gl: &glow::Context, shader: Shader, camera: &Camera) {
         let view_proj_loc = shader.uniform_location(gl, "ViewProj").unwrap();
-        let view_proj = mat4_to_vec(world.projection * world.camera.view_mat());
+        let view_proj = mat4_to_vec(*PROJECTION * camera.view_mat());
 
         let camera_pos_loc = shader.uniform_location(gl, "CameraPos").unwrap();
-        let camera_pos = world.camera.position();
+        let camera_pos = camera.position();
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&view_proj_loc), false, view_proj.as_slice());
@@ -80,29 +77,14 @@ impl NodeDrawItem {
 }
 
 #[derive(Debug)]
-pub(super) struct EdgeDrawItem {
+pub struct EdgeDrawItem {
     pub positions: [Position; 2],
 }
 
 impl EdgeDrawItem {
-    pub(super) fn build(world: &WorldData, graph: &Graph) -> Vec<Self> {
-        let mut ret = vec![];
-
-        for i in graph.tracker.iter_alive() {
-            for j in graph.tracker.iter_alive().exclude(i) {
-                if graph.is_adjacent(i, j) {
-                    ret.push(EdgeDrawItem {
-                        positions: [world.positions[i], world.positions[j]],
-                    });
-                }
-            }
-        }
-        ret
-    }
-
-    pub(super) fn set_per_pass_uniforms(gl: &glow::Context, shader: Shader, world: &WorldData) {
+    pub(super) fn set_per_pass_uniforms(gl: &glow::Context, shader: Shader, camera: &Camera) {
         let view_proj_loc = shader.uniform_location(gl, "ViewProj").unwrap();
-        let view_proj = mat4_to_vec(world.projection * world.camera.view_mat());
+        let view_proj = mat4_to_vec(*PROJECTION * camera.view_mat());
 
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(&view_proj_loc), false, view_proj.as_slice());

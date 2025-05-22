@@ -6,7 +6,7 @@ use crate::unbind_on_drop;
 use super::binding::{ScopedBind, UnbindOnDrop};
 
 #[derive(Copy, Clone)]
-pub(super) struct Framebuffer {
+pub struct Framebuffer {
     pub fbo: glow::Framebuffer,
     pub color_buffer: glow::Texture,
     pub depth_buffer: Option<glow::Renderbuffer>,
@@ -28,7 +28,7 @@ impl ScopedBind for Framebuffer {
 }
 
 impl Framebuffer {
-    pub(super) fn read_pixel_from_stencil(self, gl: &glow::Context, (x, y): (i32, i32)) -> u8 {
+    pub fn read_pixel_from_stencil(self, gl: &glow::Context, (x, y): (i32, i32)) -> u8 {
         let mut slice = [0; 1];
         self.bind(gl);
 
@@ -57,7 +57,7 @@ impl Framebuffer {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct FramebufferBuilder {
+pub struct FramebufferBuilder {
     width: u32,
     height: u32,
     depth_buffer: bool,

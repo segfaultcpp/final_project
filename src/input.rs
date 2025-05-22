@@ -3,7 +3,7 @@ use winit::event::{ElementState, MouseScrollDelta};
 
 use crate::{
     app::{WINDOW_HEIGHT, WINDOW_WIDTH},
-    world::WorldData,
+    world::{self, camera::Camera},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,7 +39,7 @@ impl Input {
         }
     }
 
-    pub fn mouse_to_world(&self, world: &WorldData) -> Point3<f32> {
+    pub fn mouse_to_world(&self, camera: &Camera) -> Point3<f32> {
         let (x, y) = (
             self.mouse_position.0 as f32,
             WINDOW_HEIGHT as f32 - self.mouse_position.1 as f32,
@@ -58,9 +58,7 @@ impl Input {
             1.0,
         );
 
-        let inv_vp = (world.projection * world.camera.view_mat())
-            .invert()
-            .unwrap();
+        let inv_vp = (*world::PROJECTION * camera.view_mat()).invert().unwrap();
 
         let mut ray_start = inv_vp * ray_start;
         ray_start /= ray_start.w;

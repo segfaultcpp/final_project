@@ -5,7 +5,6 @@ use std::{
 
 use egui_glow::EguiGlow;
 use egui_winit::winit;
-use log::info;
 use winit::application::ApplicationHandler;
 use winit::event_loop::ActiveEventLoop;
 
@@ -103,7 +102,7 @@ impl<U: super::UserApp> ApplicationHandler<UserEvent> for AppBase<U> {
         let gl = Arc::new(gl);
         gl_window.window().set_visible(true);
 
-        let egui_glow = EguiGlow::new(event_loop, gl.clone(), None, None, true);
+        let mut egui_glow = EguiGlow::new(event_loop, gl.clone(), None, None, true);
 
         let event_loop_proxy = egui::mutex::Mutex::new(self.proxy.clone());
         egui_glow
@@ -115,7 +114,7 @@ impl<U: super::UserApp> ApplicationHandler<UserEvent> for AppBase<U> {
                     .expect("Cannot send event");
             });
 
-        self.user_app.init_renderer(gl.clone());
+        self.user_app.initialize(gl.clone(), &mut egui_glow.painter);
 
         self.gl_window = Some(gl_window);
         self.gl = Some(gl);

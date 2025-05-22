@@ -1,36 +1,25 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 
 use app::{App, UserApp};
-use compute::{
-    Compute, CopyIteration, UpdatePaths,
-    state::Iteration,
-    steps::{
-        betweeness::Betweeness,
-        capacity::Capacity,
-        delete::{DeleteMaxBetweenness, DeleteOverloaded},
-        zmax::Zmax,
-    },
-};
-use graph::{GraphDesc, NodeDesc, node::Node};
+use egui::{Frame, Modal, TextEdit};
+use egui_dock::{DockArea, DockState};
+use egui_glow::Painter;
 use input::{Input, Key};
 use log::{LevelFilter, Log, SetLoggerError, info};
 use renderer::Renderer;
 use simple_logger::SimpleLogger;
-use ui::UiTabManager;
-use ui_legacy::UiState;
+use ui::{MainTab, UiTabViewer, editor::EditorTab};
 use winit::{
     event::{DeviceEvent, MouseButton, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
 };
-use world::{WorldData, camera::CameraMovement};
 
 mod app;
-mod compute;
+// mod compute;
 mod graph;
 mod input;
 mod renderer;
 mod ui;
-mod ui_legacy;
 mod world;
 
 struct LoggerWrapper(SimpleLogger);
@@ -63,204 +52,235 @@ impl Log for LoggerWrapper {
     }
 }
 
-#[derive(Default, Clone)]
-pub enum AppMode {
-    #[default]
-    Editor,
-    RunResult, // TODO:
-}
-
-pub struct AppState {
-    pub mode: AppMode,
-    pub compute: Compute,
-    pub world: WorldData,
-    pub selected_node: Option<Node>,
-}
-
-impl Drop for AppState {
-    fn drop(&mut self) {
-        let Iteration { graph, .. } = self.compute.state().at(0);
-
-        let mut nodes = vec![];
-        for i in graph.tracker.iter_alive() {
-            nodes.push(NodeDesc {
-                node_id: i.as_idx() as u32,
-                nodes: {
-                    let mut nodes = vec![];
-
-                    for j in graph.tracker.iter_alive().exclude(i) {
-                        if graph.is_adjacent(i, j) {
-                            nodes.push(j.as_idx() as u32);
-                        }
-                    }
-
-                    nodes
-                },
-                position: self.world.positions[i].0.into(),
-            })
-        }
-
-        let desc = GraphDesc {
-            alpha: self.compute.state().alpha,
-            nodes,
-        };
-
-        let desc = toml::to_string(&desc).unwrap();
-
-        std::fs::write("data/graph_desc.toml", desc.as_str()).unwrap();
-    }
-}
-
-impl AppState {
-    fn new() -> Self {
-        let desc = std::fs::read_to_string("data/graph_desc.toml").unwrap();
-        let desc: GraphDesc = toml::from_str(desc.as_str()).unwrap();
-
-        let mut compute = Compute::new(desc.clone())
-            .add_step(UpdatePaths)
-            .add_step(Zmax)
-            .add_step(Betweeness)
-            .add_step(Capacity)
-            .add_step(CopyIteration)
-            .add_step(DeleteMaxBetweenness)
-            .add_step(UpdatePaths)
-            .add_step(Betweeness)
-            .add_step(DeleteOverloaded);
-
-        compute.run();
-
-        let world = WorldData::new(&compute.state().at(0).graph.tracker, desc);
-        Self {
-            compute,
-            world,
-            selected_node: None,
-            mode: Default::default(),
-        }
-    }
-}
-
 struct MyApp {
-    renderer: Option<Renderer>,
-    app_state: AppState,
-    ui_state: UiState,
     input: Input,
+    opened_file: Option<String>,
 
-    tab_manager: UiTabManager,
+    dock_state: DockState<Box<dyn MainTab>>,
+
+    save_as_opened: bool,
+    save_as_file: String,
+
+    project_menu_opened: bool,
+    projects: Vec<String>,
+    selected_project: usize,
+    blank_project_name: String,
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            opened_file: None,
+            input: Default::default(),
+            dock_state: DockState::new(vec![]),
+            save_as_opened: false,
+            save_as_file: String::new(),
+
+            project_menu_opened: true,
+            projects: Self::fetch_projects(),
+            selected_project: usize::MAX,
+            blank_project_name: String::new(),
+        }
+    }
 }
 
 impl MyApp {
-    fn init() -> Self {
-        let app_state = AppState::new();
-        let tab_manager = UiTabManager::new(&app_state.world);
-
-        Self {
-            renderer: None,
-            app_state,
-            tab_manager,
-            ui_state: Default::default(),
-            input: Default::default(),
+    fn fetch_projects() -> Vec<String> {
+        let mut files = vec![];
+        for entry in std::fs::read_dir("projects/").unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_file() {
+                files.push(path.file_stem().unwrap().to_str().unwrap().to_owned());
+            }
         }
+        files
+    }
+
+    fn show_top_panel(&mut self, egui_ctx: &egui::Context) {
+        egui::TopBottomPanel::top("top_panel").show(egui_ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Save").clicked() {
+                        if let Some(ref file) = self.opened_file {
+                            self.save_to(file.as_str());
+                        }
+                    }
+
+                    if ui.button("Save as...").clicked() {
+                        self.save_as_opened = true;
+                    }
+
+                    if ui.button("Quit").clicked() {
+                        egui_ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+                ui.add_space(16.0);
+
+                egui::widgets::global_theme_preference_buttons(ui);
+            });
+
+            if self.save_as_opened {
+                self.show_save_as_menu(ui);
+            }
+        });
+    }
+
+    fn show_dock_area(&mut self, ui: &mut egui::Ui) {
+        DockArea::new(&mut self.dock_state)
+            .style(egui_dock::Style::from_egui(ui.style().as_ref()))
+            .show_inside(ui, &mut UiTabViewer);
+    }
+
+    fn show_project_menu(&mut self, ui: &mut egui::Ui) {
+        Modal::new(ui.id()).show(ui.ctx(), |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label("Open Project");
+            });
+
+            ui.separator();
+
+            ui.vertical_centered(|ui| {
+                let selected = self.selected_project;
+
+                for (i, project) in self.projects.iter().enumerate() {
+                    if ui
+                        .selectable_label(i == selected, project.as_str())
+                        .clicked()
+                    {
+                        self.selected_project = i;
+                    }
+                }
+            });
+
+            ui.separator();
+
+            ui.vertical_centered(|ui| {
+                if ui.button("Open").clicked() && self.selected_project != usize::MAX {
+                    self.project_menu_opened = false;
+                    self.open_project();
+                }
+            });
+
+            ui.separator();
+
+            ui.vertical_centered(|ui| {
+                ui.label("Create blank Project");
+            });
+
+            ui.separator();
+
+            let response = ui.add(
+                TextEdit::singleline(&mut self.blank_project_name)
+                    .hint_text("Enter project name here"),
+            );
+
+            ui.separator();
+
+            ui.vertical_centered(|ui| {
+                if ui.button("Create").clicked() {
+                    if !self.blank_project_name.is_empty()
+                        && !self.projects.contains(&self.blank_project_name)
+                    {
+                        self.project_menu_opened = false;
+                        self.create_blank_project();
+                    }
+
+                    response
+                        .highlight()
+                        .show_tooltip_text("Project name cannot be empty!");
+                }
+            });
+        });
+    }
+
+    fn show_save_as_menu(&mut self, ui: &mut egui::Ui) {
+        Modal::new(ui.id()).show(ui.ctx(), |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label("Save Project");
+            });
+
+            ui.separator();
+
+            let response = ui.add(
+                TextEdit::singleline(&mut self.save_as_file).hint_text("Enter project name here"),
+            );
+            ui.label("The project will be saved in projects/ directory");
+
+            ui.separator();
+
+            ui.vertical_centered(|ui| {
+                if ui.button("Save").clicked() {
+                    if !self.save_as_file.is_empty() {
+                        self.save_as_opened = false;
+                        self.save_to(self.save_as_file.as_str());
+                    }
+
+                    response
+                        .highlight()
+                        .show_tooltip_text("Project name cannot be empty!");
+                }
+            });
+        });
+    }
+
+    fn create_blank_project(&mut self) {
+        self.opened_file = Some(self.blank_project_name.clone());
+        info!("Blank project {} created", self.blank_project_name);
+    }
+
+    fn open_project(&mut self) {
+        let file = self.projects[self.selected_project].clone();
+
+        let Some((_, tab)) = self.dock_state.iter_all_tabs_mut().next() else {
+            return;
+        };
+
+        let path = String::from("projects/") + file.as_str() + ".toml";
+        info!("Opening file from path {path}");
+
+        tab.open_file(path.as_str());
+        self.opened_file = Some(file);
+    }
+
+    fn save_to(&self, file: &str) {
+        let Some((_, tab)) = self.dock_state.iter_all_tabs().next() else {
+            return;
+        };
+
+        let file = String::from("projects/") + file + ".toml";
+        tab.save_to(file.clone());
+
+        info!("Saved from tab {} to file {}", tab.title().text(), file);
     }
 }
 
 impl UserApp for MyApp {
-    fn init_renderer(&mut self, gl: Arc<glow::Context>) {
-        self.renderer = Some(Renderer::new(gl.clone()));
+    fn initialize(&mut self, gl: Arc<glow::Context>, painter: &mut Painter) {
+        Renderer::init(gl.clone());
+        let tabs: Vec<Box<dyn MainTab>> = vec![Box::new(EditorTab::new(painter))];
+        self.dock_state = DockState::new(tabs);
     }
 
     fn update(&mut self, delta: Duration) {
-        if self.input.is_pressed(Key::W) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Up, delta.as_secs_f32());
+        for tab in self.dock_state.iter_all_tabs_mut() {
+            tab.1.update(delta);
         }
-
-        if self.input.is_pressed(Key::S) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Down, delta.as_secs_f32());
-        }
-
-        if self.input.is_pressed(Key::A) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Left, delta.as_secs_f32());
-        }
-
-        if self.input.is_pressed(Key::D) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Right, delta.as_secs_f32());
-        }
-
-        if self.input.is_pressed(Key::ArrowUp) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Forward, delta.as_secs_f32());
-        }
-
-        if self.input.is_pressed(Key::ArrowDown) {
-            self.app_state
-                .world
-                .camera
-                .process_keyboard(CameraMovement::Backward, delta.as_secs_f32());
-        }
-
-        if self.input.is_pressed(Key::Lmb) && self.input.is_pressed(Key::Rmb) {
-            self.app_state
-                .world
-                .camera
-                .process_mouse_zoom(self.input.mouse_motion.1, delta.as_secs_f32());
-        } else if self.input.is_pressed(Key::Lmb) {
-            self.app_state
-                .world
-                .camera
-                .process_mouse_motion(self.input.mouse_motion, delta.as_secs_f32());
-        } else if self.input.is_pressed(Key::Rmb) {
-            if let Some(ref renderer) = self.renderer {
-                let idx = renderer.idx_from_stencil(self.input.mouse_position);
-                if idx != 0 {
-                    self.app_state.selected_node = Some(unsafe { Node::new(idx as u32 - 1) });
-                } else {
-                    self.app_state.selected_node = None;
-                }
-            }
-
-            if let Some(node) = self.app_state.selected_node {
-                let position = &mut self.app_state.world.positions[node].0;
-                let (x, y) = self.input.mouse_motion;
-                position.x += x as f32 * 3.5 * delta.as_secs_f32();
-                position.y -= y as f32 * 3.5 * delta.as_secs_f32();
-            }
-        }
-
-        if self.input.is_pressed(Key::Lctrl) && self.input.is_pressed(Key::Lmb) {
-            let pos = self.input.mouse_to_world(&self.app_state.world);
-            info!("{pos:?}");
-        }
-
-        self.input.update();
     }
 
     fn render(&mut self, _gl: Arc<glow::Context>) {
-        let Some(ref renderer) = self.renderer else {
-            return;
-        };
-
-        self.app_state
-            .world
-            .update_materials(self.app_state.compute.state().get());
-        renderer.render(&self.app_state);
+        // TODO: remove fn from trait
     }
 
     fn ui_layout(&mut self, egui_ctx: &egui::Context) {
-        self.tab_manager.show(egui_ctx);
-        // self.ui_state.show(egui_ctx, &mut self.app_state);
+        self.show_top_panel(egui_ctx);
+
+        egui::CentralPanel::default().show(egui_ctx, |ui| {
+            if self.opened_file.is_some() {
+                self.show_dock_area(ui);
+            } else {
+                self.show_project_menu(ui);
+            }
+        });
     }
 
     fn handle_window_events(&mut self, event: WindowEvent) {
@@ -339,6 +359,6 @@ impl UserApp for MyApp {
 fn main() {
     LoggerWrapper::init().unwrap();
 
-    let app = App::new(MyApp::init());
+    let app = App::new(MyApp::default());
     app.run().expect("failed to run app");
 }

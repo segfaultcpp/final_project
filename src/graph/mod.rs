@@ -9,7 +9,7 @@ pub mod node;
 pub mod path_finder;
 
 #[derive(Clone, Debug)]
-pub struct GraphInfo {
+pub struct GraphStats {
     pub zs: NADVec<f64>,
     pub zmax: f64,
     pub beta: f64,
@@ -22,7 +22,7 @@ pub struct GraphInfo {
     pub max_betweenness: Node,
 }
 
-impl GraphInfo {
+impl GraphStats {
     pub fn new(tracker: &NodeStatusTracker) -> Self {
         Self {
             zs: NADVec::new(tracker),
@@ -112,7 +112,6 @@ pub struct NodeDesc {
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct GraphDesc {
-    pub alpha: f64,
     pub nodes: Vec<NodeDesc>,
 }
 
@@ -127,7 +126,6 @@ impl GraphDesc {
 
     pub fn example() -> Self {
         Self {
-            alpha: 3.0,
             nodes: vec![
                 NodeDesc {
                     node_id: 0,

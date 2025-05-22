@@ -1,14 +1,12 @@
-use camera::Camera;
-use cgmath::{Array, Matrix4, Point3, Vector3};
-use log::info;
+use std::ops::RangeInclusive;
 
-use crate::{
-    app::{WINDOW_HEIGHT, WINDOW_WIDTH},
-    compute::state::Iteration,
-    graph::{
-        GraphDesc, GraphInfo,
-        node::{NADVec, NodeStatusTracker},
-    },
+use camera::Camera;
+use cgmath::{Matrix4, Point3, Vector3};
+use lazy_static::lazy_static;
+
+use crate::graph::{
+    GraphDesc, GraphStats,
+    node::{NADVec, NodeStatusTracker},
 };
 
 pub mod camera;
@@ -39,6 +37,11 @@ pub struct Material {
 }
 
 impl Material {
+    pub fn with_albedo(mut self, albedo: [f32; 3]) -> Self {
+        self.albedo = albedo.into();
+        self
+    }
+
     pub fn update_albedo(&mut self, b: f64, min_b: f64, max_b: f64) {
         assert!(b <= max_b && b >= min_b);
 
@@ -70,47 +73,80 @@ impl Default for Position {
     }
 }
 
-pub struct WorldData {
+lazy_static! {
+    pub static ref PROJECTION: Matrix4<f32> =
+        cgmath::perspective(cgmath::Deg(50.0), 16.0 / 9.0, 0.001, 100.0);
+}
+
+pub trait World {
+    fn camera(&self) -> &Camera;
+    fn positions(&self) -> impl Iterator<Item = Position>;
+    fn materials(&self) -> impl Iterator<Item = Material>;
+}
+
+#[derive(Clone, Default)]
+pub struct EditorWorld {
+    pub positions: Vec<Position>,
+    pub camera: Camera,
+    pub material: Material,
+}
+
+impl EditorWorld {
+    pub fn new(desc: GraphDesc) -> Self {
+        let nodes = desc.nodes;
+        Self {
+            positions: nodes
+                .into_iter()
+                .map(|n| Position(n.position.into()))
+                .collect(),
+            material: Default::default(),
+            camera: Camera::new(),
+        }
+    }
+
+    pub fn spawn<'a>(
+        &mut self,
+        pos: impl Iterator<Item = &'a Vector3<f32>>,
+    ) -> RangeInclusive<usize> {
+        let start = self.positions.len();
+        self.positions.extend(pos.map(|p| Position(*p)));
+        let end = self.positions.len();
+
+        start..=end - 1
+    }
+
+    pub fn spawn_single(&mut self, pos: Vector3<f32>) -> usize {
+        self.spawn(std::iter::once(&pos)).next().unwrap()
+    }
+}
+
+pub struct RunWorld {
     pub positions: NADVec<Position>,
     pub materials: NADVec<Material>,
     pub camera: Camera,
-    pub projection: Matrix4<f32>,
 }
 
-impl WorldData {
-    pub fn new(tracker: &NodeStatusTracker, desc: GraphDesc) -> Self {
+impl RunWorld {
+    pub fn new(tracker: &NodeStatusTracker, ed_world: &EditorWorld) -> Self {
         Self {
-            positions: Self::init_positions(tracker, desc.nodes().iter().map(|n| n.position)),
-            materials: Self::init_materials(tracker),
-            camera: Camera::new(),
-            projection: cgmath::perspective(cgmath::Deg(50.0), 16.0 / 9.0, 0.001, 100.0),
+            positions: {
+                let mut positions = NADVec::new(tracker);
+                for i in tracker.iter_alive() {
+                    positions[i] = ed_world.positions[i.as_idx()];
+                }
+                positions
+            },
+            materials: NADVec::new(tracker),
+            camera: ed_world.camera,
         }
     }
 
-    fn init_positions(
-        tracker: &NodeStatusTracker,
-        positions: impl Iterator<Item = [f32; 3]>,
-    ) -> NADVec<Position> {
-        let mut ret = NADVec::<Position>::new(tracker);
+    pub fn update_materials(&mut self, tracker: &NodeStatusTracker, stats: &GraphStats) {
+        for i in tracker.iter_alive() {
+            let min = stats.betweenness[stats.min_betweenness];
+            let max = stats.betweenness[stats.max_betweenness];
 
-        for (i, position) in tracker.iter_alive().zip(positions) {
-            ret[i] = Position(position.into());
-        }
-
-        ret
-    }
-
-    fn init_materials(tracker: &NodeStatusTracker) -> NADVec<Material> {
-        NADVec::<Material>::new(tracker)
-    }
-
-    pub fn update_materials(&mut self, iter: &Iteration) {
-        let Iteration { graph, info } = iter;
-        for i in graph.tracker.iter_alive() {
-            let min = info.betweenness[info.min_betweenness];
-            let max = info.betweenness[info.max_betweenness];
-
-            self.materials[i].update_albedo(info.betweenness[i], min, max);
+            self.materials[i].update_albedo(stats.betweenness[i], min, max);
         }
     }
 }

@@ -10,6 +10,7 @@ pub enum CameraMovement {
     Down,
 }
 
+#[derive(Clone, Copy)]
 pub struct Camera {
     position: Point3<f32>,
     front: Vector3<f32>,
@@ -26,6 +27,12 @@ pub struct Camera {
     mouse_captured: bool,
     last_mouse_x: f64,
     last_mouse_y: f64,
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Camera {
@@ -80,6 +87,11 @@ impl Camera {
         self.position
     }
 
+    pub fn position_as_vec(&self) -> Vector3<f32> {
+        let p = self.position;
+        (p.x, p.y, p.z).into()
+    }
+
     pub fn process_keyboard(&mut self, movement: CameraMovement, delta: f32) {
         let velocity = self.movement_speed * delta;
 
@@ -94,15 +106,15 @@ impl Camera {
         }
     }
 
-    pub fn process_mouse_motion(&mut self, (x, y): (f64, f64), delta: f32) {
+    pub fn process_mouse_motion(&mut self, (x, y): (f32, f32), delta: f32) {
         const SPEED: f32 = 4.0;
-        self.position -= self.right * x as f32 * delta * SPEED;
-        self.position += self.world_up * y as f32 * delta * SPEED;
+        self.position -= self.right * x * delta * SPEED;
+        self.position += self.world_up * y * delta * SPEED;
     }
 
-    pub fn process_mouse_zoom(&mut self, y: f64, delta: f32) {
+    pub fn process_mouse_zoom(&mut self, y: f32, delta: f32) {
         const SPEED: f32 = 4.0;
-        self.position -= self.front * y as f32 * delta * SPEED;
+        self.position -= self.front * y * delta * SPEED;
     }
 
     pub fn process_mouse_movement(&mut self, mut offset: Vector2<f32>) {
@@ -130,11 +142,5 @@ impl Camera {
 
         self.right = self.front.cross(self.world_up).normalize();
         self.up = self.right.cross(self.front).normalize();
-    }
-}
-
-impl Default for Camera {
-    fn default() -> Self {
-        Self::new()
     }
 }

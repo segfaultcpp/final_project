@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use base::AppBase;
+use egui_glow::Painter;
 use winit::{
     error::EventLoopError,
     event::{DeviceEvent, WindowEvent},
@@ -13,7 +14,7 @@ pub const WINDOW_WIDTH: u32 = 1920;
 pub const WINDOW_HEIGHT: u32 = 1080;
 
 pub trait UserApp {
-    fn init_renderer(&mut self, gl: Arc<glow::Context>);
+    fn initialize(&mut self, gl: Arc<glow::Context>, painter: &mut Painter);
     fn ui_layout(&mut self, egui_ctx: &egui::Context);
     fn update(&mut self, delta: Duration);
     fn render(&mut self, gl: Arc<glow::Context>);
