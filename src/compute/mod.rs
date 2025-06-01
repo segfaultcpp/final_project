@@ -1,7 +1,7 @@
 use state::{Iteration, State};
 use steps::ComputeStep;
 
-use crate::graph::GraphDesc;
+use crate::ui::editor::ExtAdjacency;
 
 pub mod state;
 pub mod steps;
@@ -13,9 +13,9 @@ pub struct Compute {
 }
 
 impl Compute {
-    pub fn new(desc: GraphDesc) -> Self {
-        let mut state = State::new(desc.alpha);
-        state.add_iter(Iteration::new(desc));
+    pub fn new(ext_adj: &ExtAdjacency, alpha: f64) -> Self {
+        let mut state = State::new(alpha);
+        state.add_iter(Iteration::new(ext_adj));
 
         Self {
             state,

@@ -120,13 +120,14 @@ impl EditorWorld {
     }
 }
 
-pub struct RunWorld {
+#[derive(Clone)]
+pub struct SummaryWorld {
     pub positions: NADVec<Position>,
     pub materials: NADVec<Material>,
     pub camera: Camera,
 }
 
-impl RunWorld {
+impl SummaryWorld {
     pub fn new(tracker: &NodeStatusTracker, ed_world: &EditorWorld) -> Self {
         Self {
             positions: {

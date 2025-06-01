@@ -3,6 +3,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use crate::ui::editor::ExtAdjacency;
+
 use super::{
     GraphDesc, NodeDesc,
     node::{Node, NodeStatusTracker},
@@ -90,6 +92,28 @@ impl From<GraphDesc> for Mat<bool> {
             }
         }
 
+        mat
+    }
+}
+
+impl From<&ExtAdjacency> for Mat<bool> {
+    fn from(value: &ExtAdjacency) -> Self {
+        let count = value.node_count();
+        let mut mat = Self::new(count);
+
+        for i in 0..count {
+            for j in 0..count {
+                if i == j {
+                    continue;
+                }
+
+                if value.is_set(i, j) {
+                    let (i, j) = unsafe { (Node::new(i as u32), Node::new(j as u32)) };
+                    mat.set(i, j);
+                    mat.set(j, i);
+                }
+            }
+        }
         mat
     }
 }

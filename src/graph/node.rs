@@ -111,6 +111,21 @@ impl<T: Default + Clone> NADVec<T> {
         self.0.fill(value);
     }
 
+    pub fn iter(&self, tracker: &NodeStatusTracker) -> impl Iterator<Item = &T> {
+        tracker.iter_alive().map(|node| &self[node])
+    }
+
+    pub fn iter_exclude(
+        &self,
+        tracker: &NodeStatusTracker,
+        exclude: Node,
+    ) -> impl Iterator<Item = &T> {
+        tracker
+            .iter_alive()
+            .exclude(exclude)
+            .map(|node| &self[node])
+    }
+
     pub unsafe fn clone_vec(&self) -> Vec<T> {
         self.0.clone()
     }

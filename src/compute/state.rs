@@ -1,22 +1,25 @@
-use crate::graph::{Graph, GraphDesc, GraphInfo};
+use crate::{
+    graph::{Graph, GraphDesc, GraphStats},
+    ui::editor::ExtAdjacency,
+};
 
 #[derive(Clone, Debug)]
 pub struct Iteration {
     pub graph: Graph,
-    pub info: GraphInfo,
+    pub info: GraphStats,
 }
 
 impl Iteration {
-    pub(super) fn new(desc: GraphDesc) -> Self {
-        let graph = Graph::from(desc);
-        let info = GraphInfo::new(&graph.tracker);
+    pub(super) fn new(ext_adj: &ExtAdjacency) -> Self {
+        let graph = Graph::from(ext_adj);
+        let info = GraphStats::new(&graph.tracker);
 
         Self { graph, info }
     }
 }
 
-impl From<(Graph, GraphInfo)> for Iteration {
-    fn from((graph, info): (Graph, GraphInfo)) -> Self {
+impl From<(Graph, GraphStats)> for Iteration {
+    fn from((graph, info): (Graph, GraphStats)) -> Self {
         Self { graph, info }
     }
 }

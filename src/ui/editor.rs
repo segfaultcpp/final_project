@@ -1,4 +1,4 @@
-use std::{ops::RangeInclusive, time::Duration};
+use std::ops::RangeInclusive;
 
 use cgmath::Vector3;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
@@ -10,11 +10,11 @@ use crate::{
     world::EditorWorld,
 };
 
-use super::{MainTab, outliner::OutlinerWindow, viewport::ViewportWindow};
+use super::{MainTab, TabWindow, outliner::OutlinerWindow, viewport::ViewportWindow};
 
 /// Extensible Adjacency matrix
 #[derive(Debug, Clone, Default)]
-pub(super) struct ExtAdjacency(Vec<Vec<bool>>);
+pub struct ExtAdjacency(Vec<Vec<bool>>);
 
 impl ExtAdjacency {
     pub fn new(node_count: usize) -> Self {
@@ -57,6 +57,10 @@ impl ExtAdjacency {
     pub fn add_node(&mut self) -> usize {
         self.add_nodes(1).next().unwrap()
     }
+
+    pub fn node_count(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl From<GraphDesc> for ExtAdjacency {
@@ -86,7 +90,7 @@ impl From<GraphDesc> for ExtAdjacency {
 }
 
 #[derive(Clone, Default)]
-pub(super) struct EditorState {
+pub struct EditorState {
     pub world: EditorWorld,
     pub adjacency: ExtAdjacency,
     pub selected_nodes: Vec<usize>,
@@ -305,12 +309,12 @@ impl EditorState {
 
 pub struct EditorTab {
     state: EditorState,
-    dock_state: DockState<Box<dyn EditorWindow>>,
+    dock_state: DockState<Box<dyn TabWindow<EditorState>>>,
 }
 
 impl EditorTab {
     pub fn new(painter: &mut Painter) -> Self {
-        let mut dock_state: DockState<Box<dyn EditorWindow>> =
+        let mut dock_state: DockState<Box<dyn TabWindow<EditorState>>> =
             DockState::new(vec![Box::new(ViewportWindow::new(painter))]);
         let surface = dock_state.main_surface_mut();
 
@@ -359,18 +363,10 @@ impl MainTab for EditorTab {
     }
 }
 
-pub(super) trait EditorWindow {
-    fn title(&self) -> egui::WidgetText;
-    fn show(&mut self, ui: &mut egui::Ui, state: &mut EditorState);
-
-    #[allow(unused_variables)]
-    fn update(&mut self, state: &mut EditorState, delta: Duration) {}
-}
-
 struct EditorTabViewer<'a>(&'a mut EditorState);
 
 impl TabViewer for EditorTabViewer<'_> {
-    type Tab = Box<dyn EditorWindow>;
+    type Tab = Box<dyn TabWindow<EditorState>>;
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
         tab.title()

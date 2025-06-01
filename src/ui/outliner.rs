@@ -2,7 +2,10 @@ use egui::{Button, Color32, DragValue, Frame, Modal};
 
 use crate::world::Position;
 
-use super::editor::{EditorState, EditorWindow, Topology};
+use super::{
+    TabWindow,
+    editor::{EditorState, Topology},
+};
 
 pub struct OutlinerWindow {
     add_options_opened: bool,
@@ -105,7 +108,7 @@ impl OutlinerWindow {
     }
 }
 
-impl EditorWindow for OutlinerWindow {
+impl TabWindow<EditorState> for OutlinerWindow {
     fn title(&self) -> egui::WidgetText {
         "Outliner".into()
     }

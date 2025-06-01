@@ -15,7 +15,7 @@ use winit::{
 };
 
 mod app;
-// mod compute;
+mod compute;
 mod graph;
 mod input;
 mod renderer;

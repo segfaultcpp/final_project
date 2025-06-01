@@ -4,6 +4,8 @@ use path_finder::PathFinder;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use crate::ui::editor::ExtAdjacency;
+
 pub mod mat;
 pub mod node;
 pub mod path_finder;
@@ -89,6 +91,22 @@ impl fmt::Display for Graph {
 
 impl From<GraphDesc> for Graph {
     fn from(value: GraphDesc) -> Self {
+        let node_count = value.node_count();
+
+        let tracker = NodeStatusTracker::new(node_count);
+        let path_finder = PathFinder::new(node_count);
+        let adjacency = Mat::<bool>::from(value);
+
+        Self {
+            tracker,
+            adjacency,
+            path_finder,
+        }
+    }
+}
+
+impl From<&ExtAdjacency> for Graph {
+    fn from(value: &ExtAdjacency) -> Self {
         let node_count = value.node_count();
 
         let tracker = NodeStatusTracker::new(node_count);

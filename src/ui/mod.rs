@@ -4,6 +4,7 @@ use egui::Ui;
 use egui_dock::TabViewer;
 
 pub mod editor;
+pub mod summary;
 
 pub(super) mod outliner;
 pub(super) mod viewport;
@@ -32,4 +33,12 @@ pub trait MainTab {
 
     #[allow(unused_variables)]
     fn open_file(&mut self, file: &str) {}
+}
+
+pub trait TabWindow<T> {
+    fn title(&self) -> egui::WidgetText;
+    fn show(&mut self, ui: &mut egui::Ui, state: &mut T);
+
+    #[allow(unused_variables)]
+    fn update(&mut self, state: &mut T, delta: Duration) {}
 }

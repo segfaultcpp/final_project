@@ -13,11 +13,16 @@ use crate::{
         draw::{EdgeDrawItem, NodeDrawItem},
         framebuffer::{Framebuffer, FramebufferBuilder},
     },
-    world::{Material, PROJECTION},
+    world::{Material, PROJECTION, camera::Camera},
 };
 
-use super::editor::{EditorState, EditorWindow};
+use super::{
+    TabWindow,
+    editor::EditorState,
+    summary::{SummaryState, SummaryTab},
+};
 
+#[derive(Copy, Clone)]
 enum InputAction {
     Drag(PointerButton, Vec2),
     Click(PointerButton, Vec2),
@@ -95,6 +100,19 @@ impl ViewportWindow {
         }
     }
 
+    fn process_camera(&self, action: InputAction, camera: &mut Camera, delta: Duration) {
+        match action {
+            InputAction::Drag(PointerButton::Primary, motion) => {
+                camera.process_mouse_motion((motion.x, motion.y), delta.as_secs_f32());
+            }
+            InputAction::Drag(PointerButton::Secondary, motion) => {
+                camera.process_mouse_zoom(motion.y, delta.as_secs_f32());
+            }
+
+            _ => {}
+        }
+    }
+
     fn show_gizmo(&mut self, ui: &mut egui::Ui, state: &mut EditorState) {
         if state.selected_nodes.is_empty() || ui.input(|i| i.modifiers.ctrl) {
             return;
@@ -144,7 +162,7 @@ impl ViewportWindow {
     }
 }
 
-impl EditorWindow for ViewportWindow {
+impl TabWindow<EditorState> for ViewportWindow {
     fn title(&self) -> egui::WidgetText {
         "Viewport".into()
     }
@@ -183,46 +201,42 @@ impl EditorWindow for ViewportWindow {
 
     fn update(&mut self, state: &mut EditorState, delta: Duration) {
         for action in self.actions.iter() {
-            match action {
-                InputAction::Click(PointerButton::Primary, pos) => {
-                    let idx = Renderer::idx_from_stencil(
-                        &self.framebuffer,
-                        (pos.x, WINDOW_HEIGHT as f32 - pos.y),
-                    );
+            if let InputAction::Click(PointerButton::Primary, pos) = action {
+                let idx = Renderer::idx_from_stencil(
+                    &self.framebuffer,
+                    (pos.x, WINDOW_HEIGHT as f32 - pos.y),
+                );
 
-                    if idx != 0 {
-                        let idx = idx - 1;
-                        if let Some((j, _)) = state
-                            .selected_nodes
-                            .iter()
-                            .enumerate()
-                            .find(|(_, node)| **node == idx)
-                        {
-                            state.selected_nodes.remove(j);
-                        } else {
-                            state.selected_nodes.push(idx);
-                        }
+                if idx != 0 {
+                    let idx = idx - 1;
+                    if let Some((j, _)) = state
+                        .selected_nodes
+                        .iter()
+                        .enumerate()
+                        .find(|(_, node)| **node == idx)
+                    {
+                        state.selected_nodes.remove(j);
                     } else {
-                        state.selected_nodes.clear();
+                        state.selected_nodes.push(idx);
                     }
+                } else {
+                    state.selected_nodes.clear();
                 }
-                InputAction::Drag(PointerButton::Primary, motion) => {
-                    state
-                        .world
-                        .camera
-                        .process_mouse_motion((motion.x, motion.y), delta.as_secs_f32());
-                }
-                InputAction::Drag(PointerButton::Secondary, motion) => {
-                    state
-                        .world
-                        .camera
-                        .process_mouse_zoom(motion.y, delta.as_secs_f32());
-                }
-
-                _ => {}
             }
+
+            self.process_camera(*action, &mut state.world.camera, delta);
         }
 
         self.actions.clear();
     }
+}
+
+impl TabWindow<SummaryState> for ViewportWindow {
+    fn title(&self) -> egui::WidgetText {
+        "Viewport".into()
+    }
+
+    fn show(&mut self, ui: &mut egui::Ui, state: &mut SummaryState) {}
+
+    fn update(&mut self, state: &mut SummaryState, delta: Duration) {}
 }
