@@ -133,7 +133,7 @@ impl SummaryWorld {
             positions: {
                 let mut positions = NADVec::new(tracker);
                 for i in tracker.iter_alive() {
-                    positions[i] = ed_world.positions[i.as_idx()];
+                    positions[i] = ed_world.positions[i.idx()];
                 }
                 positions
             },

@@ -26,7 +26,7 @@ impl PathFinder {
     }
 
     pub fn contains(&self, path: (Node, Node), node: Node) -> bool {
-        self.paths[node.as_idx()][path]
+        self.paths[node.idx()][path]
     }
 
     pub fn find_shortest_path_for(
@@ -38,14 +38,14 @@ impl PathFinder {
         let mut spt = vec![false; tracker.node_count()];
         let mut dist = vec![i32::MAX; tracker.node_count()];
 
-        dist[src.as_idx()] = 0;
+        dist[src.idx()] = 0;
 
         let min_dist = |spt: &[bool], dist: &[i32]| {
             let mut min_node = Node::default();
             let mut min_path = i32::MAX;
 
             for node in tracker.iter_alive() {
-                let idx = node.as_idx();
+                let idx = node.idx();
                 if !spt[idx] && dist[idx] < min_path {
                     min_path = dist[idx];
                     min_node = node;
@@ -61,18 +61,18 @@ impl PathFinder {
 
         for _ in 0..tracker.alive() {
             let min_node = min_dist(&spt, &dist)?;
-            let min_idx = min_node.as_idx();
+            let min_idx = min_node.idx();
             assert!(min_node.is_valid());
 
             spt[min_idx] = true;
 
             for j in tracker.iter_alive() {
-                if !spt[j.as_idx()]
+                if !spt[j.idx()]
                     && adj[(min_node, j)]
                     && dist[min_idx] != i32::MAX
-                    && dist[min_idx] + Graph::CONNECTION_COST < dist[j.as_idx()]
+                    && dist[min_idx] + Graph::CONNECTION_COST < dist[j.idx()]
                 {
-                    dist[j.as_idx()] = dist[min_idx] + Graph::CONNECTION_COST;
+                    dist[j.idx()] = dist[min_idx] + Graph::CONNECTION_COST;
                 }
             }
         }
@@ -84,13 +84,13 @@ impl PathFinder {
 
             let path = Self::reconstruct_path(tracker, adj, dist.as_slice(), src, target);
             for node in path.iter() {
-                self.paths[node.as_idx()].set(src, target);
-                self.paths[node.as_idx()].set(target, src);
+                self.paths[node.idx()].set(src, target);
+                self.paths[node.idx()].set(target, src);
             }
         }
 
         for node in tracker.iter_alive().exclude(src) {
-            self.costs[(src, node)] = dist[node.as_idx()];
+            self.costs[(src, node)] = dist[node.idx()];
         }
 
         Some(())
@@ -105,13 +105,13 @@ impl PathFinder {
     ) -> Vec<Node> {
         let mut path = vec![target];
 
-        let mut weight = dist[target.as_idx()];
+        let mut weight = dist[target.idx()];
 
         while target != src {
             for node in tracker.iter_alive().exclude(target) {
                 if adj[(node, target)] {
                     let diff = weight - Graph::CONNECTION_COST;
-                    if diff == dist[node.as_idx()] {
+                    if diff == dist[node.idx()] {
                         weight = diff;
                         target = node;
                         path.push(target);

@@ -33,16 +33,16 @@ impl<T: Default + Clone + fmt::Display + ToString> Mat<T> {
     }
 
     pub fn row(&self, node: Node) -> Row<'_, T> {
-        let start = self.node_count * node.as_idx();
+        let start = self.node_count * node.idx();
         Row {
             row: &self.array[start..start + self.node_count],
-            row_id: node.as_idx(),
+            row_id: node.idx(),
         }
     }
 
     pub fn get(&self, i: Node, j: Node) -> Option<&T> {
         if i != j {
-            Some(&self.array[self.node_count * i.as_idx() + j.as_idx()])
+            Some(&self.array[self.node_count * i.idx() + j.idx()])
         } else {
             None
         }
@@ -50,7 +50,7 @@ impl<T: Default + Clone + fmt::Display + ToString> Mat<T> {
 
     pub fn get_mut(&mut self, i: Node, j: Node) -> Option<&mut T> {
         if i != j {
-            Some(&mut self.array[self.node_count * i.as_idx() + j.as_idx()])
+            Some(&mut self.array[self.node_count * i.idx() + j.idx()])
         } else {
             None
         }
@@ -165,8 +165,8 @@ pub struct Row<'a, T> {
 
 impl<T> Row<'_, T> {
     pub fn get(&self, i: Node) -> Option<&T> {
-        if i.as_idx() != self.row_id {
-            Some(&self.row[i.as_idx()])
+        if i.idx() != self.row_id {
+            Some(&self.row[i.idx()])
         } else {
             None
         }
