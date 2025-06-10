@@ -61,8 +61,11 @@ impl OutlinerWindow {
             ui.radio_value(&mut self.selected_topology, Topology::Net, "Net");
             ui.radio_value(&mut self.selected_topology, Topology::Line, "Line");
             ui.radio_value(&mut self.selected_topology, Topology::Ring, "Ring");
+            ui.radio_value(&mut self.selected_topology, Topology::Star, "Star");
 
-            let min = if self.selected_topology == Topology::Ring {
+            let min = if self.selected_topology == Topology::Star {
+                4
+            } else if self.selected_topology == Topology::Ring {
                 3
             } else {
                 2

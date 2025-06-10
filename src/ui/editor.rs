@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use cgmath::Vector3;
+use cgmath::{Angle, Vector3};
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 use egui_glow::Painter;
 use log::info;
@@ -171,7 +171,24 @@ impl Topology {
     }
 
     fn positions_star(origin: Vector3<f32>, count: usize) -> Vec<Vector3<f32>> {
-        todo!()
+        use cgmath::Deg;
+        const LENGTH: f32 = 10.0;
+        let deg_off = 360.0 / count as f32;
+
+        let mut positions = vec![(0.0, 0.0, 0.0).into(); count];
+        positions[0] = origin;
+
+        let mut i = 0.0;
+        for pos in positions.iter_mut().skip(1) {
+            let x = Deg(i * deg_off).cos();
+            let y = Deg(i * deg_off).sin();
+
+            *pos = (LENGTH * x, LENGTH * y, 0.0).into();
+
+            i += 1.0;
+        }
+
+        positions
     }
 
     fn positions_line(origin: Vector3<f32>, count: usize) -> Vec<Vector3<f32>> {
@@ -234,7 +251,11 @@ impl Topology {
     }
 
     fn connect_star(adjacency: &mut ExtAdjacency, nodes: RangeInclusive<usize>) {
-        todo!()
+        let first = *nodes.start();
+        for i in nodes.clone().skip(1) {
+            adjacency.set(i, first);
+            adjacency.set(first, i);
+        }
     }
 
     fn connect_line(adjacency: &mut ExtAdjacency, nodes: RangeInclusive<usize>) {
