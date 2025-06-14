@@ -61,13 +61,9 @@ impl ExtAdjacency {
     }
 
     pub(super) fn free(&mut self, phys_idx: PhysNode) {
-        for (i, row) in self.0.iter_mut().enumerate() {
-            if i == phys_idx.idx() as usize {
-                continue;
-            }
-
-            let value = row.pop().unwrap();
-            row[phys_idx.idx() as usize] = value;
+        self.0.swap_remove(phys_idx.idx() as usize);
+        for row in self.0.iter_mut() {
+            row.swap_remove(phys_idx.idx() as usize);
         }
     }
 

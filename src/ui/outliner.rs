@@ -85,8 +85,6 @@ impl OutlinerWindow {
         });
     }
 
-    fn delete_nodes(&mut self, state: &mut EditorState) {}
-
     fn link_nodes(&mut self, state: &mut EditorState) {
         let selected = &state.selected_nodes;
         for (num, i) in selected.iter().enumerate() {
@@ -141,7 +139,7 @@ impl TabWindow<EditorState> for OutlinerWindow {
                 .on_hover_text("Delete selected nodes")
                 .clicked()
             {
-                self.delete_nodes(state);
+                state.despawn();
             }
 
             ui.separator();

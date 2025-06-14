@@ -107,11 +107,11 @@ impl EditorWorld {
 
         if phys_idx.idx() == self.positions.len() as PhysNodeIdx - 1 {
             self.positions.pop().unwrap();
+            self.materials.pop().unwrap();
             self.ext_adj.free_last();
         } else {
-            let last_pos = self.positions.pop().unwrap();
-            self.positions[phys_idx.idx() as usize] = last_pos;
-
+            self.positions.swap_remove(phys_idx.idx() as usize);
+            self.materials.swap_remove(phys_idx.idx() as usize);
             self.ext_adj.free(phys_idx);
         }
     }

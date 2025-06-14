@@ -61,6 +61,18 @@ impl EditorState {
         self.throw_all_nodes();
         self.select_nodes(nodes.iter());
     }
+
+    pub fn despawn(&mut self) {
+        if self.selected_nodes.is_empty() {
+            return;
+        }
+
+        for node in self.selected_nodes.iter() {
+            self.world.despawn(*node);
+        }
+
+        self.selected_nodes.clear();
+    }
 }
 
 pub struct EditorTab {
