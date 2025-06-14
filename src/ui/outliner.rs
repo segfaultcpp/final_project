@@ -1,11 +1,8 @@
 use egui::{Button, Color32, DragValue, Frame, Modal};
 
-use crate::world::Position;
+use crate::world::{Position, editor::topology::Topology, node::IsNode};
 
-use super::{
-    TabWindow,
-    editor::{EditorState, Topology},
-};
+use super::{TabWindow, editor::EditorState};
 
 pub struct OutlinerWindow {
     add_options_opened: bool,
@@ -94,8 +91,8 @@ impl OutlinerWindow {
         let selected = &state.selected_nodes;
         for (num, i) in selected.iter().enumerate() {
             for j in selected.iter().skip(num + 1) {
-                state.adjacency.set(*i, *j);
-                state.adjacency.set(*j, *i);
+                state.world.connect(*i, *j);
+                state.world.connect(*j, *i);
             }
         }
     }
@@ -104,8 +101,8 @@ impl OutlinerWindow {
         let selected = &state.selected_nodes;
         for (num, i) in selected.iter().enumerate() {
             for j in selected.iter().skip(num + 1) {
-                state.adjacency.unset(*i, *j);
-                state.adjacency.unset(*j, *i);
+                state.world.disconnect(*i, *j);
+                state.world.disconnect(*j, *i);
             }
         }
     }
@@ -169,19 +166,23 @@ impl TabWindow<EditorState> for OutlinerWindow {
         let response = ui.separator();
 
         // Frame::group(ui.style()).show(ui, |ui| {
-        let selected_nodes = &mut state.selected_nodes;
-        for (i, _) in state.world.positions.iter_mut().enumerate().rev() {
-            let response = ui.selectable_label(selected_nodes.contains(&i), format!("Node {i}"));
+        let nodes = state.world.nodes().collect::<Vec<_>>();
+        for node in nodes {
+            let is_selected = state
+                .selected_nodes
+                .iter()
+                .enumerate()
+                .find(|(_, i)| **i == node)
+                .map(|(pos, _)| pos);
+
+            let response =
+                ui.selectable_label(is_selected.is_some(), format!("Node {}", node.idx()));
 
             if response.clicked() {
-                if let Some((j, _)) = selected_nodes
-                    .iter()
-                    .enumerate()
-                    .find(|(_, node)| **node == i)
-                {
-                    selected_nodes.remove(j);
+                if let Some(pos) = is_selected {
+                    state.throw_node(pos);
                 } else {
-                    selected_nodes.push(i);
+                    state.select_node(node);
                 }
             }
         }

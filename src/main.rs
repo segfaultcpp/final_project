@@ -15,11 +15,12 @@ use winit::{
 };
 
 mod app;
-mod compute;
-mod graph;
+// mod compute;
+// mod graph;
 mod input;
 mod renderer;
 mod ui;
+mod utils;
 mod world;
 
 struct LoggerWrapper(SimpleLogger);

@@ -4,7 +4,7 @@ use egui::Ui;
 use egui_dock::TabViewer;
 
 pub mod editor;
-pub mod summary;
+// pub mod summary;
 
 pub(super) mod outliner;
 pub(super) mod viewport;

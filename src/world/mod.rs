@@ -1,15 +1,14 @@
-use std::ops::RangeInclusive;
-
 use camera::Camera;
 use cgmath::{Matrix4, Point3, Vector3};
 use lazy_static::lazy_static;
 
-use crate::graph::{
-    GraphDesc, GraphStats,
-    node::{NADVec, NodeStatusTracker},
-};
+use crate::renderer::draw::{EdgeDrawItem, NodeDrawItem};
 
 pub mod camera;
+pub mod desc;
+pub mod editor;
+pub mod node;
+// pub mod summary;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Position(pub Vector3<f32>);
@@ -39,6 +38,21 @@ pub struct Material {
 impl Material {
     pub fn with_albedo(mut self, albedo: [f32; 3]) -> Self {
         self.albedo = albedo.into();
+        self
+    }
+
+    pub fn with_roughness(mut self, roughness: f32) -> Self {
+        self.roughness = roughness;
+        self
+    }
+
+    pub fn with_metallic(mut self, metallic: f32) -> Self {
+        self.metallic = metallic;
+        self
+    }
+
+    pub fn with_ao(mut self, ao: f32) -> Self {
+        self.ao = ao;
         self
     }
 
@@ -75,81 +89,13 @@ impl Default for Position {
 
 lazy_static! {
     pub static ref PROJECTION: Matrix4<f32> =
-        cgmath::perspective(cgmath::Deg(50.0), 16.0 / 9.0, 0.001, 100.0);
+        cgmath::perspective(cgmath::Deg(50.0), 16.0 / 9.0, 0.001, 100000.0);
 }
 
 pub trait World {
     fn camera(&self) -> &Camera;
-    fn positions(&self) -> impl Iterator<Item = Position>;
-    fn materials(&self) -> impl Iterator<Item = Material>;
-}
-
-#[derive(Clone, Default)]
-pub struct EditorWorld {
-    pub positions: Vec<Position>,
-    pub camera: Camera,
-    pub material: Material,
-}
-
-impl EditorWorld {
-    pub fn new(desc: GraphDesc) -> Self {
-        let nodes = desc.nodes;
-        Self {
-            positions: nodes
-                .into_iter()
-                .map(|n| Position(n.position.into()))
-                .collect(),
-            material: Default::default(),
-            camera: Camera::new(),
-        }
-    }
-
-    pub fn spawn<'a>(
-        &mut self,
-        pos: impl Iterator<Item = &'a Vector3<f32>>,
-    ) -> RangeInclusive<usize> {
-        let start = self.positions.len();
-        self.positions.extend(pos.map(|p| Position(*p)));
-        let end = self.positions.len();
-
-        start..=end - 1
-    }
-
-    pub fn spawn_single(&mut self, pos: Vector3<f32>) -> usize {
-        self.spawn(std::iter::once(&pos)).next().unwrap()
-    }
-}
-
-#[derive(Clone)]
-pub struct SummaryWorld {
-    pub positions: NADVec<Position>,
-    pub materials: NADVec<Material>,
-    pub camera: Camera,
-}
-
-impl SummaryWorld {
-    pub fn new(tracker: &NodeStatusTracker, ed_world: &EditorWorld) -> Self {
-        Self {
-            positions: {
-                let mut positions = NADVec::new(tracker);
-                for i in tracker.iter_alive() {
-                    positions[i] = ed_world.positions[i.idx()];
-                }
-                positions
-            },
-            materials: NADVec::new(tracker),
-            camera: ed_world.camera,
-        }
-    }
-
-    pub fn update_materials(&mut self, tracker: &NodeStatusTracker, stats: &GraphStats) {
-        for i in tracker.iter_alive() {
-            let min = stats.betweenness[stats.min_betweenness];
-            let max = stats.betweenness[stats.max_betweenness];
-
-            self.materials[i].update_albedo(stats.betweenness[i], min, max);
-        }
-    }
+    fn build_node_draw_items(&self) -> Vec<NodeDrawItem>;
+    fn build_edge_draw_items(&self) -> Vec<EdgeDrawItem>;
 }
 
 // TODO: kostil

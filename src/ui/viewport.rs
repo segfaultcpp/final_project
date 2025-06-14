@@ -10,17 +10,16 @@ use crate::{
     app::{WINDOW_HEIGHT, WINDOW_WIDTH},
     renderer::{
         Renderer,
-        draw::{EdgeDrawItem, NodeDrawItem},
         framebuffer::{Framebuffer, FramebufferBuilder},
     },
-    world::{Material, PROJECTION, camera::Camera},
+    world::{
+        PROJECTION, World,
+        camera::Camera,
+        node::{IsNode, Node, PhysNode, PhysNodeIdx},
+    },
 };
 
-use super::{
-    TabWindow,
-    editor::EditorState,
-    summary::{SummaryState, SummaryTab},
-};
+use super::{TabWindow, editor::EditorState};
 
 #[derive(Copy, Clone)]
 enum InputAction {
@@ -54,24 +53,34 @@ impl ViewportWindow {
         }
     }
 
-    fn build_edge_draw_items_editor(&self, state: &EditorState) -> Vec<EdgeDrawItem> {
-        let mut ret = vec![];
+    fn render(&mut self, ui: &mut egui::Ui, world: &impl World) -> Response {
+        let size = ui.min_size();
 
-        let n = state.world.positions.len();
-        for i in 0..n {
-            for j in 0..n {
-                if i == j {
-                    continue;
-                }
+        Renderer::render(
+            world.camera(),
+            &self.framebuffer,
+            (size.x as i32, size.y as i32),
+            world.build_node_draw_items(),
+            world.build_edge_draw_items(),
+        );
 
-                if state.adjacency.is_set(i, j) {
-                    ret.push(EdgeDrawItem {
-                        positions: [state.world.positions[i], state.world.positions[j]],
-                    });
-                }
+        ui.add(
+            egui::Image::from_texture(SizedTexture::new(self.color_buffer_id, size))
+                .uv(Rect::from_min_max(Pos2::new(0.0, 1.0), Pos2::new(1.0, 0.0)))
+                .sense(Sense::CLICK | Sense::DRAG),
+        )
+    }
+
+    fn update(&mut self, state: &mut EditorState, delta: Duration) {
+        for action in self.actions.iter() {
+            if let InputAction::Click(PointerButton::Primary, pos) = action {
+                self.process_click_action(*pos, state);
             }
+
+            self.process_camera(*action, &mut state.world.camera, delta);
         }
-        ret
+
+        self.actions.clear();
     }
 
     fn process_input(&mut self, response: Response) {
@@ -97,6 +106,27 @@ impl ViewportWindow {
         } else if response.secondary_clicked() {
             self.actions
                 .push(InputAction::Click(PointerButton::Secondary, pos));
+        }
+    }
+
+    fn process_click_action(&self, pos: Vec2, state: &mut EditorState) {
+        let idx =
+            Renderer::idx_from_stencil(&self.framebuffer, (pos.x, WINDOW_HEIGHT as f32 - pos.y));
+
+        if idx != 0 {
+            let phys_node = unsafe { PhysNode::new(idx as PhysNodeIdx - 1) };
+            if let Some((idx, _)) = state
+                .selected_nodes
+                .iter()
+                .enumerate()
+                .find(|(_, node)| state.world.phys_node(**node) == phys_node)
+            {
+                state.throw_node(idx);
+            } else {
+                state.select_node(state.world.glob_node(phys_node));
+            }
+        } else {
+            state.throw_all_nodes();
         }
     }
 
@@ -135,7 +165,7 @@ impl ViewportWindow {
         let translations: Vec<cgmath::mint::Vector3<f64>> = state
             .selected_nodes
             .iter()
-            .map(|node| state.world.positions[*node].0.cast().unwrap().into())
+            .map(|node| state.world.position(*node).0.cast().unwrap().into())
             .collect();
 
         let rotation: cgmath::mint::Quaternion<f64> =
@@ -155,7 +185,7 @@ impl ViewportWindow {
 
             for (node, transform) in state.selected_nodes.iter().zip(transforms.iter()) {
                 let pos = transform.translation;
-                state.world.positions[*node].0 =
+                state.world.position_mut(*node).0 =
                     cgmath::Vector3::new(pos.x as f32, pos.y as f32, 0.0);
             }
         }
@@ -168,75 +198,23 @@ impl TabWindow<EditorState> for ViewportWindow {
     }
 
     fn show(&mut self, ui: &mut egui::Ui, state: &mut EditorState) {
-        let size = ui.min_size();
-
-        let materials = std::iter::repeat_n(&state.world.material, state.world.positions.len())
-            .enumerate()
-            .map(|(i, m)| {
-                if state.selected_nodes.contains(&i) {
-                    Material::default().with_albedo([0.0, 1.0, 0.0])
-                } else {
-                    *m
-                }
-            })
-            .collect::<Vec<_>>();
-
-        Renderer::render(
-            &state.world.camera,
-            &self.framebuffer,
-            (size.x as i32, size.y as i32),
-            NodeDrawItem::build(state.world.positions.iter(), materials.iter()),
-            self.build_edge_draw_items_editor(state),
-        );
-
-        let response = ui.add(
-            egui::Image::from_texture(SizedTexture::new(self.color_buffer_id, size))
-                .uv(Rect::from_min_max(Pos2::new(0.0, 1.0), Pos2::new(1.0, 0.0)))
-                .sense(Sense::CLICK | Sense::DRAG),
-        );
+        let response = self.render(ui, &state.world);
         self.process_input(response);
 
         self.show_gizmo(ui, state);
     }
 
     fn update(&mut self, state: &mut EditorState, delta: Duration) {
-        for action in self.actions.iter() {
-            if let InputAction::Click(PointerButton::Primary, pos) = action {
-                let idx = Renderer::idx_from_stencil(
-                    &self.framebuffer,
-                    (pos.x, WINDOW_HEIGHT as f32 - pos.y),
-                );
-
-                if idx != 0 {
-                    let idx = idx - 1;
-                    if let Some((j, _)) = state
-                        .selected_nodes
-                        .iter()
-                        .enumerate()
-                        .find(|(_, node)| **node == idx)
-                    {
-                        state.selected_nodes.remove(j);
-                    } else {
-                        state.selected_nodes.push(idx);
-                    }
-                } else {
-                    state.selected_nodes.clear();
-                }
-            }
-
-            self.process_camera(*action, &mut state.world.camera, delta);
-        }
-
-        self.actions.clear();
+        self.update(state, delta);
     }
 }
-
+/*
 impl TabWindow<SummaryState> for ViewportWindow {
     fn title(&self) -> egui::WidgetText {
         "Viewport".into()
     }
 
     fn show(&mut self, ui: &mut egui::Ui, state: &mut SummaryState) {}
-
     fn update(&mut self, state: &mut SummaryState, delta: Duration) {}
 }
+*/
